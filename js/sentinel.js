@@ -383,10 +383,14 @@ FunMap.Sentinel = {
             });
         }
 
+        // Attach calendars to compare date inputs
+        FunMap.Calendar.attach('compare-date-left');
+        FunMap.Calendar.attach('compare-date-right');
+
         // Set default dates
         const dates = FunMap.UI.getDateRange();
-        document.getElementById('compare-date-left').value = FunMap.Utils.daysAgo(30);
-        document.getElementById('compare-date-right').value = dates.to;
+        FunMap.Calendar.setValue('compare-date-left', FunMap.Utils.daysAgo(30));
+        FunMap.Calendar.setValue('compare-date-right', dates.to);
 
         // Hide main map, show compare
         mainMap.style.display = 'none';
@@ -502,8 +506,8 @@ FunMap.Sentinel = {
         }
     },
 
-    // Shared: fetch available image dates from CDSE catalog and populate datalists
-    async fetchAvailableDatesFor(collectionId, bounds, datalistIds, showToast) {
+    // Shared: fetch available image dates from CDSE catalog and highlight on calendars
+    async fetchAvailableDatesFor(collectionId, bounds, calendarInputIds, showToast) {
         try {
             const token = await FunMap.Settings.getCDSEToken();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
@@ -542,14 +546,8 @@ FunMap.Sentinel = {
 
             const sortedDates = Array.from(dateSet).sort().reverse();
 
-            // Populate all specified datalists
-            datalistIds.forEach(id => {
-                const dl = document.getElementById(id);
-                if (dl) {
-                    dl.innerHTML = '';
-                    sortedDates.forEach(d => dl.appendChild(new Option(d, d)));
-                }
-            });
+            // Highlight available dates on all specified calendar inputs
+            FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, sortedDates);
 
             if (showToast && sortedDates.length > 0) {
                 FunMap.Utils.toast(`${sortedDates.length} image dates available (last 90 days)`, 'info');
@@ -566,7 +564,7 @@ FunMap.Sentinel = {
         const collectionId = this._compareMode === 's2' ? 'sentinel-2-l2a' : 'sentinel-1-grd';
         const bounds = this._compareMap.getBounds();
         await this.fetchAvailableDatesFor(collectionId, bounds,
-            ['compare-dates-left', 'compare-dates-right'], true);
+            ['compare-date-left', 'compare-date-right'], true);
     },
 
     // Fetch available dates for global date filter pickers
@@ -579,13 +577,12 @@ FunMap.Sentinel = {
         if (!clientId) return;
 
         const bounds = FunMap.Map.getBounds();
-        // Fetch for S2 by default (most commonly used), also for S1
         const s2Active = document.getElementById('layer-sentinel2').checked;
         const s1Active = document.getElementById('layer-sentinel1').checked;
         const collectionId = s2Active ? 'sentinel-2-l2a' : (s1Active ? 'sentinel-1-grd' : 'sentinel-2-l2a');
 
         await this.fetchAvailableDatesFor(collectionId, bounds,
-            ['global-dates-available'], false);
+            ['global-date-from', 'global-date-to'], false);
     },
 
     // Fetch available dates for change detection
@@ -595,7 +592,7 @@ FunMap.Sentinel = {
 
         const bounds = FunMap.Map.getBounds();
         await this.fetchAvailableDatesFor('sentinel-1-grd', bounds,
-            ['change-dates-available'], false);
+            ['change-date-a', 'change-date-b'], false);
     },
 
     async _loadCompareImage(side) {
@@ -762,10 +759,6 @@ FunMap.Sentinel = {
         // Clear map container for reinit
         document.getElementById('compare-map-single').innerHTML = '';
 
-        // Clear datalists
-        document.getElementById('compare-dates-left').innerHTML = '';
-        document.getElementById('compare-dates-right').innerHTML = '';
-
         // Show main map, hide compare
         document.getElementById('map').style.display = '';
         document.getElementById('compare-container').classList.add('hidden');
@@ -795,9 +788,13 @@ FunMap.Sentinel = {
         this._changeMode = true;
         document.getElementById('change-toolbar').classList.remove('hidden');
 
+        // Attach calendars to change detection date inputs
+        FunMap.Calendar.attach('change-date-a');
+        FunMap.Calendar.attach('change-date-b');
+
         // Set default dates
-        document.getElementById('change-date-a').value = FunMap.Utils.daysAgo(30);
-        document.getElementById('change-date-b').value = FunMap.Utils.daysAgo(0);
+        FunMap.Calendar.setValue('change-date-a', FunMap.Utils.daysAgo(30));
+        FunMap.Calendar.setValue('change-date-b', FunMap.Utils.daysAgo(0));
 
         // Fetch available S1 dates for the date pickers
         this.refreshChangeDatesAvailable();

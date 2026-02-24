@@ -47,10 +47,9 @@
             <div class="top-bar-center">
                 <div class="date-filter-bar">
                     <label>FROM</label>
-                    <input type="date" id="global-date-from" class="xbox-input" list="global-dates-available">
+                    <input type="text" id="global-date-from" class="xbox-input" readonly placeholder="YYYY-MM-DD">
                     <label>TO</label>
-                    <input type="date" id="global-date-to" class="xbox-input" list="global-dates-available">
-                    <datalist id="global-dates-available"></datalist>
+                    <input type="text" id="global-date-to" class="xbox-input" readonly placeholder="YYYY-MM-DD">
                     <button id="apply-date-filter" class="xbox-btn sm">APPLY</button>
                     <button id="reset-date-filter" class="xbox-btn sm ghost">RESET</button>
                 </div>
@@ -327,8 +326,7 @@
             <div id="compare-toolbar" class="hidden">
                 <div class="compare-side" id="compare-left-controls">
                     <span class="compare-label">BEFORE</span>
-                    <input type="date" id="compare-date-left" class="xbox-input sm" list="compare-dates-left">
-                    <datalist id="compare-dates-left"></datalist>
+                    <input type="text" id="compare-date-left" class="xbox-input sm" readonly placeholder="YYYY-MM-DD">
                     <select id="compare-viz-left" class="xbox-select sm"></select>
                 </div>
                 <div class="compare-actions">
@@ -337,8 +335,7 @@
                 </div>
                 <div class="compare-side" id="compare-right-controls">
                     <span class="compare-label">AFTER</span>
-                    <input type="date" id="compare-date-right" class="xbox-input sm" list="compare-dates-right">
-                    <datalist id="compare-dates-right"></datalist>
+                    <input type="text" id="compare-date-right" class="xbox-input sm" readonly placeholder="YYYY-MM-DD">
                     <select id="compare-viz-right" class="xbox-select sm"></select>
                 </div>
             </div>
@@ -347,10 +344,9 @@
                 <div class="change-controls">
                     <span class="compare-label">CHANGE DETECTION</span>
                     <label>Date A:</label>
-                    <input type="date" id="change-date-a" class="xbox-input sm" list="change-dates-available">
+                    <input type="text" id="change-date-a" class="xbox-input sm" readonly placeholder="YYYY-MM-DD">
                     <label>Date B:</label>
-                    <input type="date" id="change-date-b" class="xbox-input sm" list="change-dates-available">
-                    <datalist id="change-dates-available"></datalist>
+                    <input type="text" id="change-date-b" class="xbox-input sm" readonly placeholder="YYYY-MM-DD">
                     <label>Threshold (dB):</label>
                     <input type="range" id="change-threshold" min="1" max="10" value="3" step="0.5" class="xbox-range sm">
                     <span id="change-threshold-val" class="range-val">3 dB</span>
@@ -586,6 +582,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
+    <script src="js/calendar.js"></script>
     <script src="js/map.js"></script>
     <script src="js/sentinel.js"></script>
     <script src="js/firms.js"></script>

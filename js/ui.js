@@ -70,19 +70,23 @@ FunMap.UI = {
     // ---- Date Filter ----
 
     _initDateFilter() {
+        // Attach custom calendars to global date inputs
+        FunMap.Calendar.attach('global-date-from');
+        FunMap.Calendar.attach('global-date-to');
+
         // Set defaults
         const today = FunMap.Utils.toISODate(new Date());
         const thirtyDaysAgo = FunMap.Utils.daysAgo(30);
-        document.getElementById('global-date-from').value = thirtyDaysAgo;
-        document.getElementById('global-date-to').value = today;
+        FunMap.Calendar.setValue('global-date-from', thirtyDaysAgo);
+        FunMap.Calendar.setValue('global-date-to', today);
 
         document.getElementById('apply-date-filter').addEventListener('click', () => {
             this._applyDateFilter();
         });
 
         document.getElementById('reset-date-filter').addEventListener('click', () => {
-            document.getElementById('global-date-from').value = FunMap.Utils.daysAgo(30);
-            document.getElementById('global-date-to').value = FunMap.Utils.toISODate(new Date());
+            FunMap.Calendar.setValue('global-date-from', FunMap.Utils.daysAgo(30));
+            FunMap.Calendar.setValue('global-date-to', FunMap.Utils.toISODate(new Date()));
             this._applyDateFilter();
         });
     },

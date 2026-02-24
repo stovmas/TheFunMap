@@ -448,8 +448,9 @@ textarea.xbox-input {
     resize: vertical;
     font-family: var(--font-main);
 }
-input[type="date"].xbox-input {
-    color-scheme: dark;
+/* Calendar-attached date inputs */
+.xbox-input[readonly] {
+    cursor: pointer;
 }
 
 .xbox-select {
@@ -1339,6 +1340,121 @@ input[type="date"].xbox-input {
 .building-polygon:hover {
     fill-opacity: 0.4 !important;
     stroke-width: 2 !important;
+}
+
+/* ============================================
+   CUSTOM CALENDAR WIDGET
+   ============================================ */
+.cal-panel {
+    background: var(--xbox-panel);
+    border: 1px solid var(--xbox-panel-border);
+    box-shadow: var(--xbox-glow-strong);
+    padding: 8px;
+    width: 260px;
+    font-family: var(--font-main);
+    user-select: none;
+}
+.cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+.cal-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--xbox-green);
+}
+.cal-nav {
+    background: none;
+    border: 1px solid var(--xbox-panel-border);
+    color: var(--xbox-green);
+    font-size: 18px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+    font-family: var(--font-main);
+}
+.cal-nav:hover {
+    background: rgba(135, 197, 64, 0.15);
+    border-color: var(--xbox-green);
+}
+.cal-days-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    margin-bottom: 2px;
+}
+.cal-day-name {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--xbox-text-dim);
+    padding: 2px 0;
+}
+.cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+.cal-cell {
+    text-align: center;
+    font-size: 12px;
+    padding: 5px 2px;
+    cursor: default;
+    border: 1px solid transparent;
+    transition: all 0.1s;
+}
+.cal-empty {
+    /* empty slot before first day */
+}
+.cal-day {
+    cursor: pointer;
+    color: var(--xbox-text-dim);
+    border: 1px solid rgba(135, 197, 64, 0.06);
+}
+.cal-day:hover {
+    background: rgba(135, 197, 64, 0.12);
+    border-color: var(--xbox-panel-border);
+    color: var(--xbox-text);
+}
+/* Available date = has satellite imagery */
+.cal-day.cal-available {
+    background: rgba(135, 197, 64, 0.18);
+    color: var(--xbox-green-bright);
+    font-weight: 700;
+    border-color: rgba(135, 197, 64, 0.35);
+}
+.cal-day.cal-available:hover {
+    background: rgba(135, 197, 64, 0.35);
+    border-color: var(--xbox-green);
+    box-shadow: 0 0 4px rgba(135, 197, 64, 0.3);
+}
+/* Selected date */
+.cal-day.cal-selected {
+    background: var(--xbox-green) !important;
+    color: var(--xbox-black) !important;
+    font-weight: 700;
+    border-color: var(--xbox-green-bright);
+    box-shadow: 0 0 6px rgba(135, 197, 64, 0.5);
+}
+/* Today */
+.cal-day.cal-today {
+    border-color: var(--xbox-green);
+}
+.cal-footer {
+    margin-top: 6px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--xbox-text-dim);
+    text-align: center;
+    letter-spacing: 0.5px;
 }
 
 /* Custom marker styles */
