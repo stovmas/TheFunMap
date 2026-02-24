@@ -603,6 +603,11 @@ input[type="date"].xbox-input {
     z-index: 1;
 }
 
+/* Dark base map Xbox styling - lighter grey background with green tinted lines */
+.dark-xbox-tiles {
+    filter: brightness(1.6) contrast(1.05) sepia(0.25) hue-rotate(70deg) saturate(0.6);
+}
+
 /* Override Leaflet styles for Xbox look */
 .leaflet-control-zoom a {
     background: var(--xbox-panel) !important;
@@ -654,12 +659,11 @@ input[type="date"].xbox-input {
     color: var(--xbox-green-bright) !important;
 }
 
-/* Comparison */
+/* Comparison - Slider based */
 #compare-container {
     position: absolute;
     inset: 0;
     z-index: 500;
-    display: flex;
 }
 /* Compare conflict tooltip */
 .conflict-tooltip {
@@ -671,38 +675,75 @@ input[type="date"].xbox-input {
     border-radius: 0 !important;
     box-shadow: var(--xbox-glow) !important;
 }
-.compare-map {
-    flex: 1;
+.compare-map-full {
+    width: 100%;
     height: 100%;
 }
-#compare-divider {
-    width: 4px;
-    background: var(--xbox-green);
+/* Slider */
+.compare-slider {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    z-index: 510;
+    width: 0;
     cursor: col-resize;
-    position: relative;
-    z-index: 501;
-    box-shadow: var(--xbox-glow-strong);
+    pointer-events: auto;
 }
-.divider-handle {
+.compare-slider-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    transform: translateX(-50%);
+    background: var(--xbox-green);
+    box-shadow: var(--xbox-glow-strong);
+    pointer-events: none;
+}
+.compare-slider-handle {
     position: absolute;
     top: 50%;
-    left: 50%;
+    left: 0;
     transform: translate(-50%, -50%);
     background: var(--xbox-panel);
-    border: 1px solid var(--xbox-green);
-    padding: 8px 4px;
+    border: 2px solid var(--xbox-green);
+    padding: 10px 6px;
     color: var(--xbox-green);
     cursor: col-resize;
+    box-shadow: var(--xbox-glow-strong);
+    z-index: 511;
+    pointer-events: auto;
+    user-select: none;
 }
+.compare-slider-handle:hover {
+    background: rgba(135, 197, 64, 0.15);
+}
+.compare-label-overlay {
+    position: absolute;
+    top: 60px;
+    z-index: 509;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--xbox-green);
+    background: var(--xbox-panel);
+    border: 1px solid var(--xbox-panel-border);
+    padding: 4px 12px;
+    pointer-events: none;
+}
+.compare-label-left { left: 12px; }
+.compare-label-right { right: 12px; }
 #compare-toolbar {
     position: absolute;
     top: 8px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 510;
+    z-index: 520;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     background: var(--xbox-panel);
     border: 1px solid var(--xbox-panel-border);
     padding: 8px 16px;
@@ -711,6 +752,10 @@ input[type="date"].xbox-input {
 .compare-side {
     display: flex;
     align-items: center;
+    gap: 6px;
+}
+.compare-actions {
+    display: flex;
     gap: 6px;
 }
 .compare-label {
@@ -876,6 +921,16 @@ input[type="date"].xbox-input {
     font-size: 11px;
     color: var(--xbox-text-dim);
     margin-bottom: 8px;
+}
+.measure-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.xbox-btn.icon-btn.measure-active {
+    border-color: var(--xbox-green);
+    background: rgba(135, 197, 64, 0.25);
+    box-shadow: var(--xbox-glow);
 }
 
 /* ============================================
@@ -1270,6 +1325,15 @@ input[type="date"].xbox-input {
     background:
         radial-gradient(ellipse at 20% 80%, rgba(135, 197, 64, 0.03) 0%, transparent 50%),
         radial-gradient(ellipse at 80% 20%, rgba(135, 197, 64, 0.02) 0%, transparent 50%);
+}
+
+/* Building polygons (OSM/Overpass) */
+.building-polygon {
+    transition: fill-opacity 0.15s;
+}
+.building-polygon:hover {
+    fill-opacity: 0.4 !important;
+    stroke-width: 2 !important;
 }
 
 /* Custom marker styles */

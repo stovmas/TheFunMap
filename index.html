@@ -308,29 +308,36 @@
         <!-- Map Container -->
         <div id="map-container">
             <div id="map"></div>
-            <!-- Comparison overlay -->
+            <!-- Comparison overlay (slider-based) -->
             <div id="compare-container" class="hidden">
-                <div id="compare-map-left" class="compare-map"></div>
-                <div id="compare-divider">
-                    <div class="divider-handle">
+                <div id="compare-map-single" class="compare-map-full"></div>
+                <div id="compare-slider" class="compare-slider">
+                    <div class="compare-slider-line"></div>
+                    <div class="compare-slider-handle">
                         <svg width="8" height="30" viewBox="0 0 8 30" fill="currentColor">
                             <rect x="0" y="0" width="2" height="30"/><rect x="6" y="0" width="2" height="30"/>
                         </svg>
                     </div>
                 </div>
-                <div id="compare-map-right" class="compare-map"></div>
+                <div class="compare-label-overlay compare-label-left">BEFORE</div>
+                <div class="compare-label-overlay compare-label-right">AFTER</div>
             </div>
             <!-- Compare toolbar -->
             <div id="compare-toolbar" class="hidden">
                 <div class="compare-side" id="compare-left-controls">
-                    <span class="compare-label">LEFT</span>
-                    <input type="date" id="compare-date-left" class="xbox-input sm">
+                    <span class="compare-label">BEFORE</span>
+                    <input type="date" id="compare-date-left" class="xbox-input sm" list="compare-dates-left">
+                    <datalist id="compare-dates-left"></datalist>
                     <select id="compare-viz-left" class="xbox-select sm"></select>
                 </div>
-                <button id="btn-close-compare" class="xbox-btn sm accent">CLOSE COMPARE</button>
+                <div class="compare-actions">
+                    <button id="btn-apply-compare" class="xbox-btn sm">APPLY</button>
+                    <button id="btn-close-compare" class="xbox-btn sm accent">CLOSE</button>
+                </div>
                 <div class="compare-side" id="compare-right-controls">
-                    <span class="compare-label">RIGHT</span>
-                    <input type="date" id="compare-date-right" class="xbox-input sm">
+                    <span class="compare-label">AFTER</span>
+                    <input type="date" id="compare-date-right" class="xbox-input sm" list="compare-dates-right">
+                    <datalist id="compare-dates-right"></datalist>
                     <select id="compare-viz-right" class="xbox-select sm"></select>
                 </div>
             </div>
@@ -407,7 +414,10 @@
                         <span id="measure-area">--</span>
                     </div>
                 </div>
-                <button id="btn-measure-clear" class="xbox-btn sm full-width ghost">CLEAR</button>
+                <div class="measure-actions">
+                    <button id="btn-measure-clear" class="xbox-btn sm full-width ghost">CLEAR</button>
+                    <button id="btn-measure-done" class="xbox-btn sm full-width accent">DONE / DEACTIVATE</button>
+                </div>
             </div>
         </div>
 

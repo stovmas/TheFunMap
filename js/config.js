@@ -45,6 +45,7 @@ FunMap.Config = {
             url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
             name: 'Dark',
+            className: 'dark-xbox-tiles',
         },
         satellite: {
             url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -170,7 +171,7 @@ function setup() {
     return {
         input: [{
             bands: ["VV", "dataMask"],
-            units: "DB"
+            units: "dB"
         }],
         output: { bands: 4 },
         mosaicking: "ORBIT"

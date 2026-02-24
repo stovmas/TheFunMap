@@ -43,12 +43,20 @@ FunMap.UI = {
             btn.addEventListener('click', () => {
                 const panelId = btn.dataset.close;
                 document.getElementById(panelId).classList.add('hidden');
+                // If closing measure panel, fully deactivate measurement
+                if (panelId === 'measure-panel' && this._measuringActive) {
+                    this._deactivateMeasure();
+                }
             });
         });
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                // Deactivate measurement if active
+                if (this._measuringActive) {
+                    this._deactivateMeasure();
+                }
                 // Close any open modals/panels
                 document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
                 document.querySelectorAll('.floating-panel:not(.hidden)').forEach(p => p.classList.add('hidden'));
@@ -179,25 +187,37 @@ FunMap.UI = {
     // ---- Measurement ----
 
     _initMeasure() {
-        document.getElementById('btn-measure').addEventListener('click', () => {
-            const panel = document.getElementById('measure-panel');
-            panel.classList.toggle('hidden');
-
-            if (!panel.classList.contains('hidden')) {
-                this._startMeasure();
+        const btn = document.getElementById('btn-measure');
+        btn.addEventListener('click', () => {
+            if (this._measuringActive) {
+                // Deactivate measurement mode
+                this._deactivateMeasure();
             } else {
-                this._stopMeasure();
+                // Activate measurement mode
+                document.getElementById('measure-panel').classList.remove('hidden');
+                this._startMeasure();
             }
         });
 
         document.getElementById('btn-measure-clear').addEventListener('click', () => {
             this._clearMeasure();
+            // Restart measuring after clear
+            if (this._measuringActive) {
+                this._measurePoints = [];
+            }
+        });
+
+        // DONE / DEACTIVATE button
+        document.getElementById('btn-measure-done').addEventListener('click', () => {
+            this._deactivateMeasure();
         });
     },
 
     _startMeasure() {
         this._measuringActive = true;
         this._measurePoints = [];
+        const btn = document.getElementById('btn-measure');
+        btn.classList.add('measure-active');
         FunMap.Map.map.getContainer().style.cursor = 'crosshair';
         FunMap.Utils.setStatus('MEASUREMENT MODE - CLICK TO ADD POINTS');
 
@@ -214,10 +234,17 @@ FunMap.UI = {
     },
 
     _stopMeasure() {
-        this._measuringActive = false;
         FunMap.Map.map.getContainer().style.cursor = '';
         FunMap.Map.map.off('click', this._measureClickHandler);
         FunMap.Map.map.off('dblclick', this._measureDblClickHandler);
+    },
+
+    _deactivateMeasure() {
+        this._stopMeasure();
+        this._measuringActive = false;
+        document.getElementById('btn-measure').classList.remove('measure-active');
+        document.getElementById('measure-panel').classList.add('hidden');
+        this._clearMeasure();
         FunMap.Utils.setStatus('SYSTEMS ONLINE');
     },
 
@@ -260,6 +287,7 @@ FunMap.UI = {
         }
         this._stopMeasure();
         this._updateMeasureDisplay();
+        // After finish, user can click measure button to fully deactivate
     },
 
     _clearMeasure() {

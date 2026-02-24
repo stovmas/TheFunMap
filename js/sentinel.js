@@ -324,7 +324,11 @@ FunMap.Sentinel = {
         }
     },
 
-    // ---- Compare Mode ----
+    // ---- Compare Mode (Slider-based) ----
+
+    _compareMap: null,
+    _sliderPos: 0.5, // 0-1 position
+    _compareImageCache: { left: null, right: null },
 
     _openCompare(sensor) {
         const zoom = FunMap.Map.getZoom();
@@ -341,6 +345,8 @@ FunMap.Sentinel = {
         }
 
         this._compareMode = sensor;
+        this._sliderPos = 0.5;
+        this._compareImageCache = { left: null, right: null };
         const container = document.getElementById('compare-container');
         const toolbar = document.getElementById('compare-toolbar');
         const mainMap = document.getElementById('map');
@@ -384,61 +390,177 @@ FunMap.Sentinel = {
         container.classList.remove('hidden');
         toolbar.classList.remove('hidden');
 
-        // Create side by side maps
+        // Create single map for comparison
         const center = FunMap.Map.getCenter();
         const currentZoom = FunMap.Map.getZoom();
 
-        this._compareMaps.left = L.map('compare-map-left', {
+        this._compareMap = L.map('compare-map-single', {
             center: center,
             zoom: currentZoom,
-            zoomControl: false,
-        });
-        this._compareMaps.right = L.map('compare-map-right', {
-            center: center,
-            zoom: currentZoom,
-            zoomControl: false,
+            zoomControl: true,
         });
 
-        // Add base layers
+        // Add base layer
         const baseCfg = FunMap.Config.BaseMaps[FunMap.Map.currentBase];
-        L.tileLayer(baseCfg.url, { attribution: baseCfg.attribution }).addTo(this._compareMaps.left);
-        L.tileLayer(baseCfg.url, { attribution: baseCfg.attribution }).addTo(this._compareMaps.right);
+        L.tileLayer(baseCfg.url, { attribution: baseCfg.attribution }).addTo(this._compareMap);
 
-        // Sync maps
-        this._compareMaps.left.on('move', () => {
-            if (this._syncLock) return;
-            this._syncLock = true;
-            this._compareMaps.right.setView(this._compareMaps.left.getCenter(), this._compareMaps.left.getZoom(), { animate: false });
-            this._syncLock = false;
-        });
-        this._compareMaps.right.on('move', () => {
-            if (this._syncLock) return;
-            this._syncLock = true;
-            this._compareMaps.left.setView(this._compareMaps.right.getCenter(), this._compareMaps.right.getZoom(), { animate: false });
-            this._syncLock = false;
+        // Setup slider
+        this._initCompareSlider();
+
+        // Update clip on map move/zoom
+        this._compareMap.on('move zoom viewreset', () => {
+            this._updateCompareClip();
         });
 
-        // Load compare imagery
+        // Load both images
         this._loadCompareImage('left');
         this._loadCompareImage('right');
 
-        // Wire up controls for reloading (use named handlers so we can remove them)
+        // Fetch available dates for date pickers
+        this._fetchAvailableDates();
+
+        // Wire up Apply button
         this._compareHandlers = {
-            dateLeft: () => this._loadCompareImage('left'),
-            dateRight: () => this._loadCompareImage('right'),
-            vizLeft: () => this._loadCompareImage('left'),
-            vizRight: () => this._loadCompareImage('right'),
+            apply: () => {
+                this._loadCompareImage('left');
+                this._loadCompareImage('right');
+                this._fetchAvailableDates();
+                FunMap.Utils.toast('Compare images updating...', 'info');
+            },
         };
-        document.getElementById('compare-date-left').addEventListener('change', this._compareHandlers.dateLeft);
-        document.getElementById('compare-date-right').addEventListener('change', this._compareHandlers.dateRight);
-        leftViz.addEventListener('change', this._compareHandlers.vizLeft);
-        rightViz.addEventListener('change', this._compareHandlers.vizRight);
+        document.getElementById('btn-apply-compare').addEventListener('click', this._compareHandlers.apply);
 
         FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
     },
 
-    async _loadCompareImage(side) {
+    _initCompareSlider() {
+        const slider = document.getElementById('compare-slider');
+        const container = document.getElementById('compare-container');
+
+        // Position slider at 50%
+        this._updateSliderPosition(0.5);
+
+        let dragging = false;
+
+        const onMove = (clientX) => {
+            const rect = container.getBoundingClientRect();
+            const pos = FunMap.Utils.clamp((clientX - rect.left) / rect.width, 0.02, 0.98);
+            this._sliderPos = pos;
+            this._updateSliderPosition(pos);
+            this._updateCompareClip();
+        };
+
+        // Mouse events
+        slider.addEventListener('mousedown', (e) => {
+            dragging = true;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+            onMove(e.clientX);
+        });
+        document.addEventListener('mouseup', () => { dragging = false; });
+
+        // Touch events
+        slider.addEventListener('touchstart', (e) => {
+            dragging = true;
+            e.preventDefault();
+        }, { passive: false });
+        document.addEventListener('touchmove', (e) => {
+            if (!dragging) return;
+            onMove(e.touches[0].clientX);
+        });
+        document.addEventListener('touchend', () => { dragging = false; });
+    },
+
+    _updateSliderPosition(pos) {
+        const container = document.getElementById('compare-container');
+        const slider = document.getElementById('compare-slider');
+        const pxPos = pos * container.offsetWidth;
+        slider.style.left = pxPos + 'px';
+    },
+
+    _updateCompareClip() {
+        // Clip the right (after) image at the slider position
+        if (this._compareLayers.right && this._compareLayers.right._image) {
+            const img = this._compareLayers.right._image;
+            const containerWidth = document.getElementById('compare-container').offsetWidth;
+            const sliderPx = this._sliderPos * containerWidth;
+
+            // Get image position relative to map container
+            const mapContainer = document.getElementById('compare-map-single');
+            const mapRect = mapContainer.getBoundingClientRect();
+            const imgRect = img.getBoundingClientRect();
+            const clipLeft = sliderPx - (imgRect.left - mapRect.left);
+
+            img.style.clipPath = `inset(0 0 0 ${clipLeft}px)`;
+        }
+    },
+
+    async _fetchAvailableDates() {
         if (!this._compareMode) return;
+        try {
+            const token = await FunMap.Settings.getCDSEToken();
+            const bounds = this._compareMap.getBounds();
+            const bbox = FunMap.Utils.bboxFromBounds(bounds);
+
+            const collectionId = this._compareMode === 's2' ? 'sentinel-2-l2a' : 'sentinel-1-grd';
+
+            // Search last 90 days
+            const from = FunMap.Utils.daysAgo(90);
+            const to = FunMap.Utils.toISODate(new Date());
+
+            const searchBody = {
+                bbox: bbox,
+                datetime: `${from}T00:00:00Z/${to}T23:59:59Z`,
+                collections: [collectionId],
+                limit: 100,
+                fields: { include: ['properties.datetime'] },
+            };
+
+            const response = await fetch(FunMap.Config.CDSE.catalogEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(searchBody),
+            });
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const dateSet = new Set();
+            if (data.features) {
+                data.features.forEach(f => {
+                    if (f.properties && f.properties.datetime) {
+                        dateSet.add(f.properties.datetime.split('T')[0]);
+                    }
+                });
+            }
+
+            const sortedDates = Array.from(dateSet).sort().reverse();
+
+            // Populate datalists for both date pickers
+            const leftList = document.getElementById('compare-dates-left');
+            const rightList = document.getElementById('compare-dates-right');
+            leftList.innerHTML = '';
+            rightList.innerHTML = '';
+            sortedDates.forEach(d => {
+                leftList.appendChild(new Option(d, d));
+                rightList.appendChild(new Option(d, d));
+            });
+
+            if (sortedDates.length > 0) {
+                FunMap.Utils.toast(`${sortedDates.length} image dates available (last 90 days)`, 'info');
+            }
+        } catch (err) {
+            console.warn('Could not fetch available dates:', err);
+        }
+    },
+
+    async _loadCompareImage(side) {
+        if (!this._compareMode || !this._compareMap) return;
 
         try {
             const token = await FunMap.Settings.getCDSEToken();
@@ -449,7 +571,7 @@ FunMap.Sentinel = {
 
             if (!dateVal) return;
 
-            const map = this._compareMaps[side];
+            const map = this._compareMap;
             const bounds = map.getBounds();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
             const mapSize = map.getSize();
@@ -500,6 +622,8 @@ FunMap.Sentinel = {
                 to: FunMap.Utils.toISODate(toDate) + 'T23:59:59Z',
             };
 
+            FunMap.Utils.setStatus(`LOADING ${side.toUpperCase()} IMAGE...`);
+
             const requestBody = {
                 input: {
                     bounds: {
@@ -529,17 +653,44 @@ FunMap.Sentinel = {
             if (!response.ok) throw new Error(`Compare image failed: ${response.status}`);
 
             const blob = await response.blob();
+
+            // Revoke old cached URL
+            if (this._compareImageCache[side]) {
+                URL.revokeObjectURL(this._compareImageCache[side]);
+            }
             const imageUrl = URL.createObjectURL(blob);
+            this._compareImageCache[side] = imageUrl;
 
             if (this._compareLayers[side]) {
                 map.removeLayer(this._compareLayers[side]);
             }
 
+            const zIndex = side === 'right' ? 650 : 600;
             this._compareLayers[side] = L.imageOverlay(imageUrl, bounds, {
                 opacity: 0.9,
+                zIndex: zIndex,
             });
             this._compareLayers[side].addTo(map);
 
+            // Ensure right image is above left
+            if (side === 'right' && this._compareLayers[side]._image) {
+                this._compareLayers[side]._image.style.zIndex = '650';
+            }
+            if (side === 'left' && this._compareLayers[side]._image) {
+                this._compareLayers[side]._image.style.zIndex = '600';
+            }
+
+            // Apply clip after image loads
+            if (side === 'right') {
+                this._compareLayers[side].on('load', () => {
+                    if (this._compareLayers[side]._image) {
+                        this._compareLayers[side]._image.style.zIndex = '650';
+                    }
+                    this._updateCompareClip();
+                });
+            }
+
+            FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
         } catch (err) {
             console.error(`Compare ${side} error:`, err);
             FunMap.Utils.toast(`Compare ${side}: ${err.message}`, 'error');
@@ -547,30 +698,30 @@ FunMap.Sentinel = {
     },
 
     _closeCompare() {
-        // Remove event listeners
+        // Remove Apply handler
         if (this._compareHandlers) {
-            document.getElementById('compare-date-left').removeEventListener('change', this._compareHandlers.dateLeft);
-            document.getElementById('compare-date-right').removeEventListener('change', this._compareHandlers.dateRight);
-            document.getElementById('compare-viz-left').removeEventListener('change', this._compareHandlers.vizLeft);
-            document.getElementById('compare-viz-right').removeEventListener('change', this._compareHandlers.vizRight);
+            document.getElementById('btn-apply-compare').removeEventListener('click', this._compareHandlers.apply);
             this._compareHandlers = null;
         }
 
-        // Destroy compare maps
-        if (this._compareMaps.left) {
-            this._compareMaps.left.remove();
-            this._compareMaps.left = null;
+        // Destroy compare map
+        if (this._compareMap) {
+            this._compareMap.remove();
+            this._compareMap = null;
         }
-        if (this._compareMaps.right) {
-            this._compareMaps.right.remove();
-            this._compareMaps.right = null;
-        }
+        // Revoke cached image URLs
+        if (this._compareImageCache.left) URL.revokeObjectURL(this._compareImageCache.left);
+        if (this._compareImageCache.right) URL.revokeObjectURL(this._compareImageCache.right);
+        this._compareImageCache = { left: null, right: null };
         this._compareLayers = { left: null, right: null };
         this._compareMode = null;
 
-        // Clear map containers for reinit
-        document.getElementById('compare-map-left').innerHTML = '';
-        document.getElementById('compare-map-right').innerHTML = '';
+        // Clear map container for reinit
+        document.getElementById('compare-map-single').innerHTML = '';
+
+        // Clear datalists
+        document.getElementById('compare-dates-left').innerHTML = '';
+        document.getElementById('compare-dates-right').innerHTML = '';
 
         // Show main map, hide compare
         document.getElementById('map').style.display = '';
@@ -645,7 +796,7 @@ function setup() {
     return {
         input: [{
             bands: ["VV", "dataMask"],
-            units: "DB"
+            units: "dB"
         }],
         output: { bands: 4 },
         mosaicking: "ORBIT"
