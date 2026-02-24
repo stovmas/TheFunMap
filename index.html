@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE FUN MAP - Global Monitoring System</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Boot Screen -->
+    <div id="boot-screen">
+        <div class="boot-content">
+            <div class="xbox-x">
+                <div class="x-line x-line-1"></div>
+                <div class="x-line x-line-2"></div>
+            </div>
+            <h1 class="boot-title">THE FUN MAP</h1>
+            <div class="boot-subtitle">GLOBAL MONITORING SYSTEM</div>
+            <div class="boot-loader">
+                <div class="boot-loader-bar"></div>
+            </div>
+            <div class="boot-status">INITIALIZING SYSTEMS...</div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="hidden">
+        <!-- Top Bar -->
+        <header id="top-bar">
+            <div class="top-bar-left">
+                <button id="sidebar-toggle" class="xbox-btn icon-btn" title="Toggle Sidebar">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <rect y="3" width="20" height="2"/>
+                        <rect y="9" width="20" height="2"/>
+                        <rect y="15" width="20" height="2"/>
+                    </svg>
+                </button>
+                <div class="app-title">
+                    <span class="title-x">X</span>THE FUN MAP
+                </div>
+            </div>
+            <div class="top-bar-center">
+                <div class="date-filter-bar">
+                    <label>FROM</label>
+                    <input type="date" id="global-date-from" class="xbox-input">
+                    <label>TO</label>
+                    <input type="date" id="global-date-to" class="xbox-input">
+                    <button id="apply-date-filter" class="xbox-btn sm">APPLY</button>
+                    <button id="reset-date-filter" class="xbox-btn sm ghost">RESET</button>
+                </div>
+            </div>
+            <div class="top-bar-right">
+                <button id="btn-geocode" class="xbox-btn icon-btn" title="Search Location">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                </button>
+                <button id="btn-measure" class="xbox-btn icon-btn" title="Measure Distance">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M2 12h20M2 12l4-4M2 12l4 4M22 12l-4-4M22 12l-4 4"/>
+                    </svg>
+                </button>
+                <button id="btn-settings" class="xbox-btn icon-btn" title="Settings">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="open">
+            <div class="sidebar-content">
+                <!-- Layers Section -->
+                <div class="sidebar-section">
+                    <div class="section-header" data-toggle="layers-panel">
+                        <span class="section-icon">&#9632;</span>
+                        <span>DATA LAYERS</span>
+                        <span class="toggle-arrow">&#9660;</span>
+                    </div>
+                    <div id="layers-panel" class="section-body open">
+                        <!-- Base Maps -->
+                        <div class="layer-group">
+                            <div class="layer-group-title">BASE MAP</div>
+                            <div class="radio-group">
+                                <label class="xbox-radio">
+                                    <input type="radio" name="basemap" value="dark" checked>
+                                    <span class="radio-mark"></span>
+                                    DARK
+                                </label>
+                                <label class="xbox-radio">
+                                    <input type="radio" name="basemap" value="satellite">
+                                    <span class="radio-mark"></span>
+                                    SATELLITE
+                                </label>
+                                <label class="xbox-radio">
+                                    <input type="radio" name="basemap" value="osm">
+                                    <span class="radio-mark"></span>
+                                    STREET
+                                </label>
+                                <label class="xbox-radio">
+                                    <input type="radio" name="basemap" value="terrain">
+                                    <span class="radio-mark"></span>
+                                    TERRAIN
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Sentinel-2 -->
+                        <div class="layer-group">
+                            <div class="layer-group-title">
+                                <label class="xbox-check">
+                                    <input type="checkbox" id="layer-sentinel2">
+                                    <span class="check-mark"></span>
+                                    SENTINEL-2 OPTICAL
+                                </label>
+                                <span class="zoom-badge" title="Visible at zoom 10+">Z10+</span>
+                            </div>
+                            <div class="layer-options" data-layer="sentinel2">
+                                <div class="option-row">
+                                    <label>Visualization</label>
+                                    <select id="s2-visualization" class="xbox-select">
+                                        <option value="TRUE_COLOR">True Color RGB</option>
+                                        <option value="FALSE_COLOR">False Color (Vegetation)</option>
+                                        <option value="NDVI">NDVI</option>
+                                        <option value="NDWI">NDWI</option>
+                                    </select>
+                                </div>
+                                <div class="option-row">
+                                    <label>Max Cloud Cover</label>
+                                    <input type="range" id="s2-cloud" min="0" max="100" value="30" class="xbox-range">
+                                    <span id="s2-cloud-val" class="range-val">30%</span>
+                                </div>
+                                <button id="btn-s2-compare" class="xbox-btn sm full-width">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="2" y="3" width="8" height="18" rx="1"/><rect x="14" y="3" width="8" height="18" rx="1"/>
+                                    </svg>
+                                    COMPARE MODE
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Sentinel-1 -->
+                        <div class="layer-group">
+                            <div class="layer-group-title">
+                                <label class="xbox-check">
+                                    <input type="checkbox" id="layer-sentinel1">
+                                    <span class="check-mark"></span>
+                                    SENTINEL-1 SAR
+                                </label>
+                                <span class="zoom-badge" title="Visible at zoom 10+">Z10+</span>
+                            </div>
+                            <div class="layer-options" data-layer="sentinel1">
+                                <div class="option-row">
+                                    <label>Polarization</label>
+                                    <select id="s1-polarization" class="xbox-select">
+                                        <option value="VV">VV</option>
+                                        <option value="VH">VH</option>
+                                        <option value="VV_VH">VV/VH Ratio</option>
+                                    </select>
+                                </div>
+                                <button id="btn-s1-compare" class="xbox-btn sm full-width">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="2" y="3" width="8" height="18" rx="1"/><rect x="14" y="3" width="8" height="18" rx="1"/>
+                                    </svg>
+                                    COMPARE MODE
+                                </button>
+                                <button id="btn-s1-change" class="xbox-btn sm full-width accent">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 2v20M2 12h20"/>
+                                    </svg>
+                                    CHANGE DETECTION
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- NASA FIRMS -->
+                        <div class="layer-group">
+                            <div class="layer-group-title">
+                                <label class="xbox-check">
+                                    <input type="checkbox" id="layer-firms">
+                                    <span class="check-mark"></span>
+                                    NASA FIRMS (FIRES)
+                                </label>
+                            </div>
+                            <div class="layer-options" data-layer="firms">
+                                <div class="option-row">
+                                    <label>Satellite</label>
+                                    <select id="firms-source" class="xbox-select">
+                                        <option value="VIIRS_SNPP_NRT">VIIRS SNPP</option>
+                                        <option value="VIIRS_NOAA20_NRT">VIIRS NOAA-20</option>
+                                        <option value="MODIS_NRT">MODIS</option>
+                                    </select>
+                                </div>
+                                <div class="option-row">
+                                    <label>Day Range</label>
+                                    <select id="firms-range" class="xbox-select">
+                                        <option value="1">Last 24h</option>
+                                        <option value="2">Last 48h</option>
+                                        <option value="7" selected>Last 7 days</option>
+                                        <option value="10">Last 10 days</option>
+                                    </select>
+                                </div>
+                                <div class="option-row">
+                                    <label>Color By</label>
+                                    <select id="firms-color" class="xbox-select">
+                                        <option value="confidence">Confidence</option>
+                                        <option value="frp">Fire Radiative Power</option>
+                                        <option value="brightness">Brightness</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Conflict Data -->
+                        <div class="layer-group">
+                            <div class="layer-group-title">
+                                <label class="xbox-check">
+                                    <input type="checkbox" id="layer-conflict">
+                                    <span class="check-mark"></span>
+                                    CONFLICT EVENTS
+                                </label>
+                            </div>
+                            <div class="layer-options" data-layer="conflict">
+                                <div class="option-row">
+                                    <label>Source</label>
+                                    <select id="conflict-source" class="xbox-select">
+                                        <option value="ucdp">UCDP GED</option>
+                                        <option value="acled">ACLED</option>
+                                    </select>
+                                </div>
+                                <div class="option-row">
+                                    <label>Event Type</label>
+                                    <select id="conflict-type" class="xbox-select" multiple>
+                                        <option value="all" selected>All Types</option>
+                                        <option value="battles">Battles</option>
+                                        <option value="explosions">Explosions/Remote</option>
+                                        <option value="violence_civilians">Violence vs Civilians</option>
+                                        <option value="protests">Protests</option>
+                                        <option value="riots">Riots</option>
+                                        <option value="strategic">Strategic Developments</option>
+                                    </select>
+                                </div>
+                                <div class="option-row">
+                                    <label>Min Fatalities</label>
+                                    <input type="number" id="conflict-min-fatal" class="xbox-input sm" value="0" min="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- User Pins -->
+                        <div class="layer-group">
+                            <div class="layer-group-title">
+                                <label class="xbox-check">
+                                    <input type="checkbox" id="layer-pins" checked>
+                                    <span class="check-mark"></span>
+                                    MY PINS &amp; NOTES
+                                </label>
+                                <button id="btn-add-pin" class="xbox-btn xs" title="Add Pin">+ PIN</button>
+                            </div>
+                            <div class="layer-options" data-layer="pins">
+                                <div id="pins-list" class="pins-list">
+                                    <div class="empty-state">No pins yet. Click "+ PIN" or right-click the map.</div>
+                                </div>
+                                <button id="btn-export-pins" class="xbox-btn sm full-width ghost">EXPORT PINS</button>
+                                <button id="btn-import-pins" class="xbox-btn sm full-width ghost">IMPORT PINS</button>
+                                <input type="file" id="import-pins-file" accept=".json" class="hidden">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Section -->
+                <div class="sidebar-section">
+                    <div class="section-header" data-toggle="info-panel">
+                        <span class="section-icon">&#9632;</span>
+                        <span>FEATURE INFO</span>
+                        <span class="toggle-arrow">&#9660;</span>
+                    </div>
+                    <div id="info-panel" class="section-body open">
+                        <div id="feature-info" class="feature-info">
+                            <div class="empty-state">Click a feature on the map to see details.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="sidebar-section">
+                    <div class="section-header" data-toggle="legend-panel">
+                        <span class="section-icon">&#9632;</span>
+                        <span>LEGEND</span>
+                        <span class="toggle-arrow">&#9660;</span>
+                    </div>
+                    <div id="legend-panel" class="section-body">
+                        <div id="legend-content" class="legend-content">
+                            <div class="empty-state">Enable a layer to see its legend.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Map Container -->
+        <div id="map-container">
+            <div id="map"></div>
+            <!-- Comparison overlay -->
+            <div id="compare-container" class="hidden">
+                <div id="compare-map-left" class="compare-map"></div>
+                <div id="compare-divider">
+                    <div class="divider-handle">
+                        <svg width="8" height="30" viewBox="0 0 8 30" fill="currentColor">
+                            <rect x="0" y="0" width="2" height="30"/><rect x="6" y="0" width="2" height="30"/>
+                        </svg>
+                    </div>
+                </div>
+                <div id="compare-map-right" class="compare-map"></div>
+            </div>
+            <!-- Compare toolbar -->
+            <div id="compare-toolbar" class="hidden">
+                <div class="compare-side" id="compare-left-controls">
+                    <span class="compare-label">LEFT</span>
+                    <input type="date" id="compare-date-left" class="xbox-input sm">
+                    <select id="compare-viz-left" class="xbox-select sm"></select>
+                </div>
+                <button id="btn-close-compare" class="xbox-btn sm accent">CLOSE COMPARE</button>
+                <div class="compare-side" id="compare-right-controls">
+                    <span class="compare-label">RIGHT</span>
+                    <input type="date" id="compare-date-right" class="xbox-input sm">
+                    <select id="compare-viz-right" class="xbox-select sm"></select>
+                </div>
+            </div>
+            <!-- Change Detection toolbar -->
+            <div id="change-toolbar" class="hidden">
+                <div class="change-controls">
+                    <span class="compare-label">CHANGE DETECTION</span>
+                    <label>Date A:</label>
+                    <input type="date" id="change-date-a" class="xbox-input sm">
+                    <label>Date B:</label>
+                    <input type="date" id="change-date-b" class="xbox-input sm">
+                    <label>Threshold (dB):</label>
+                    <input type="range" id="change-threshold" min="1" max="10" value="3" step="0.5" class="xbox-range sm">
+                    <span id="change-threshold-val" class="range-val">3 dB</span>
+                    <button id="btn-run-change" class="xbox-btn sm">DETECT</button>
+                    <button id="btn-close-change" class="xbox-btn sm accent">CLOSE</button>
+                </div>
+            </div>
+            <!-- Zoom Notice -->
+            <div id="zoom-notice" class="hidden">
+                <span>Zoom in to level <span id="zoom-notice-level">10</span>+ to view Sentinel data</span>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <footer id="bottom-bar">
+            <div class="status-left">
+                <span id="cursor-coords">0.0000, 0.0000</span>
+                <span class="divider">|</span>
+                <span>ZOOM: <span id="zoom-level">3</span></span>
+                <span class="divider">|</span>
+                <span id="layer-count">0 layers active</span>
+            </div>
+            <div class="status-center">
+                <span id="status-message">SYSTEMS ONLINE</span>
+            </div>
+            <div class="status-right">
+                <span id="data-timestamp"></span>
+                <span class="divider">|</span>
+                <span class="credits">POWERED BY COPERNICUS | NASA | UCDP</span>
+            </div>
+        </footer>
+
+        <!-- Geocode Search Panel -->
+        <div id="geocode-panel" class="floating-panel hidden">
+            <div class="panel-header">
+                <span>SEARCH LOCATION</span>
+                <button class="xbox-btn xs close-panel" data-close="geocode-panel">&times;</button>
+            </div>
+            <div class="panel-body">
+                <div class="search-row">
+                    <input type="text" id="geocode-input" class="xbox-input" placeholder="Enter location or coordinates...">
+                    <button id="btn-geocode-search" class="xbox-btn sm">GO</button>
+                </div>
+                <div id="geocode-results" class="search-results"></div>
+            </div>
+        </div>
+
+        <!-- Measure Panel -->
+        <div id="measure-panel" class="floating-panel hidden">
+            <div class="panel-header">
+                <span>MEASUREMENT TOOL</span>
+                <button class="xbox-btn xs close-panel" data-close="measure-panel">&times;</button>
+            </div>
+            <div class="panel-body">
+                <p class="help-text">Click on the map to place measurement points. Double-click to finish.</p>
+                <div class="measure-results">
+                    <div class="measure-row">
+                        <span>Distance:</span>
+                        <span id="measure-distance">--</span>
+                    </div>
+                    <div class="measure-row">
+                        <span>Area:</span>
+                        <span id="measure-area">--</span>
+                    </div>
+                </div>
+                <button id="btn-measure-clear" class="xbox-btn sm full-width ghost">CLEAR</button>
+            </div>
+        </div>
+
+        <!-- Pin Dialog -->
+        <div id="pin-dialog" class="modal-overlay hidden">
+            <div class="modal xbox-modal">
+                <div class="modal-header">
+                    <span id="pin-dialog-title">ADD PIN</span>
+                    <button class="xbox-btn xs close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" id="pin-title" class="xbox-input" placeholder="Pin title...">
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea id="pin-notes" class="xbox-input" rows="4" placeholder="Enter notes..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="pin-category" class="xbox-select">
+                            <option value="general">General</option>
+                            <option value="fire">Fire/Burn Area</option>
+                            <option value="conflict">Conflict Zone</option>
+                            <option value="flood">Flood/Water</option>
+                            <option value="urban">Urban Change</option>
+                            <option value="environment">Environmental</option>
+                            <option value="infrastructure">Infrastructure</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Color</label>
+                        <div class="color-picker">
+                            <button class="color-swatch active" data-color="#87c540" style="background:#87c540"></button>
+                            <button class="color-swatch" data-color="#ff4444" style="background:#ff4444"></button>
+                            <button class="color-swatch" data-color="#ff9800" style="background:#ff9800"></button>
+                            <button class="color-swatch" data-color="#2196f3" style="background:#2196f3"></button>
+                            <button class="color-swatch" data-color="#9c27b0" style="background:#9c27b0"></button>
+                            <button class="color-swatch" data-color="#ffffff" style="background:#ffffff"></button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Coordinates</label>
+                        <input type="text" id="pin-coords" class="xbox-input" readonly>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-pin-delete" class="xbox-btn sm ghost hidden">DELETE</button>
+                    <button id="btn-pin-cancel" class="xbox-btn sm ghost">CANCEL</button>
+                    <button id="btn-pin-save" class="xbox-btn sm">SAVE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Dialog -->
+        <div id="settings-dialog" class="modal-overlay hidden">
+            <div class="modal xbox-modal wide">
+                <div class="modal-header">
+                    <span>SYSTEM SETTINGS</span>
+                    <button class="xbox-btn xs close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-tabs">
+                        <button class="settings-tab active" data-tab="api-keys">API KEYS</button>
+                        <button class="settings-tab" data-tab="display">DISPLAY</button>
+                        <button class="settings-tab" data-tab="about">ABOUT</button>
+                    </div>
+                    <div class="settings-content">
+                        <div id="tab-api-keys" class="tab-panel active">
+                            <div class="form-group">
+                                <label>Copernicus Data Space - Client ID</label>
+                                <input type="text" id="setting-cdse-client-id" class="xbox-input" placeholder="Enter CDSE OAuth2 Client ID">
+                                <small>Register at <a href="https://dataspace.copernicus.eu" target="_blank">dataspace.copernicus.eu</a></small>
+                            </div>
+                            <div class="form-group">
+                                <label>Copernicus Data Space - Client Secret</label>
+                                <input type="password" id="setting-cdse-client-secret" class="xbox-input" placeholder="Enter CDSE OAuth2 Client Secret">
+                            </div>
+                            <div class="form-group">
+                                <label>NASA FIRMS MAP Key</label>
+                                <input type="text" id="setting-firms-key" class="xbox-input" placeholder="Enter FIRMS MAP Key">
+                                <small>Get free key at <a href="https://firms.modaps.eosdis.nasa.gov/api/area/" target="_blank">FIRMS API</a></small>
+                            </div>
+                            <div class="form-group">
+                                <label>ACLED API Key (optional)</label>
+                                <input type="text" id="setting-acled-key" class="xbox-input" placeholder="Enter ACLED API Key">
+                                <small>Register at <a href="https://acleddata.com/access/" target="_blank">acleddata.com</a>. UCDP data works without a key.</small>
+                            </div>
+                            <div class="form-group">
+                                <label>ACLED Email (required with key)</label>
+                                <input type="email" id="setting-acled-email" class="xbox-input" placeholder="Enter email used for ACLED registration">
+                            </div>
+                        </div>
+                        <div id="tab-display" class="tab-panel">
+                            <div class="form-group">
+                                <label>Sentinel Zoom Threshold</label>
+                                <input type="range" id="setting-sentinel-zoom" min="8" max="14" value="10" class="xbox-range">
+                                <span id="setting-sentinel-zoom-val" class="range-val">10</span>
+                            </div>
+                            <div class="form-group">
+                                <label class="xbox-check">
+                                    <input type="checkbox" id="setting-animate-bg" checked>
+                                    <span class="check-mark"></span>
+                                    Enable background animations
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label class="xbox-check">
+                                    <input type="checkbox" id="setting-show-graticule">
+                                    <span class="check-mark"></span>
+                                    Show coordinate grid
+                                </label>
+                            </div>
+                        </div>
+                        <div id="tab-about" class="tab-panel">
+                            <div class="about-content">
+                                <div class="about-logo">
+                                    <div class="xbox-x small">
+                                        <div class="x-line x-line-1"></div>
+                                        <div class="x-line x-line-2"></div>
+                                    </div>
+                                </div>
+                                <h2>THE FUN MAP</h2>
+                                <p>Global Monitoring System v1.0</p>
+                                <p class="about-desc">
+                                    An interactive global monitoring application combining Sentinel-2 optical imagery,
+                                    Sentinel-1 SAR data, NASA FIRMS active fire data, and conflict event databases
+                                    for comprehensive situational awareness.
+                                </p>
+                                <div class="about-sources">
+                                    <h3>DATA SOURCES</h3>
+                                    <ul>
+                                        <li><strong>Sentinel-2 L2A</strong> - Copernicus Data Space Ecosystem</li>
+                                        <li><strong>Sentinel-1 GRD</strong> - Copernicus Data Space Ecosystem</li>
+                                        <li><strong>Active Fires</strong> - NASA FIRMS (VIIRS/MODIS)</li>
+                                        <li><strong>Conflict Events</strong> - UCDP GED / ACLED</li>
+                                        <li><strong>Base Maps</strong> - OpenStreetMap / ESRI / CartoDB</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-settings-save" class="xbox-btn sm">SAVE SETTINGS</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading overlay -->
+        <div id="loading-overlay" class="hidden">
+            <div class="loading-spinner">
+                <div class="spinner-ring"></div>
+                <span id="loading-text">LOADING...</span>
+            </div>
+        </div>
+
+        <!-- Toast notifications -->
+        <div id="toast-container"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/sentinel.js"></script>
+    <script src="js/firms.js"></script>
+    <script src="js/conflict.js"></script>
+    <script src="js/pins.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
