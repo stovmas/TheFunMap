@@ -47,9 +47,10 @@
             <div class="top-bar-center">
                 <div class="date-filter-bar">
                     <label>FROM</label>
-                    <input type="date" id="global-date-from" class="xbox-input">
+                    <input type="date" id="global-date-from" class="xbox-input" list="global-dates-available">
                     <label>TO</label>
-                    <input type="date" id="global-date-to" class="xbox-input">
+                    <input type="date" id="global-date-to" class="xbox-input" list="global-dates-available">
+                    <datalist id="global-dates-available"></datalist>
                     <button id="apply-date-filter" class="xbox-btn sm">APPLY</button>
                     <button id="reset-date-filter" class="xbox-btn sm ghost">RESET</button>
                 </div>
@@ -346,9 +347,10 @@
                 <div class="change-controls">
                     <span class="compare-label">CHANGE DETECTION</span>
                     <label>Date A:</label>
-                    <input type="date" id="change-date-a" class="xbox-input sm">
+                    <input type="date" id="change-date-a" class="xbox-input sm" list="change-dates-available">
                     <label>Date B:</label>
-                    <input type="date" id="change-date-b" class="xbox-input sm">
+                    <input type="date" id="change-date-b" class="xbox-input sm" list="change-dates-available">
+                    <datalist id="change-dates-available"></datalist>
                     <label>Threshold (dB):</label>
                     <input type="range" id="change-threshold" min="1" max="10" value="3" step="0.5" class="xbox-range sm">
                     <span id="change-threshold-val" class="range-val">3 dB</span>
@@ -415,8 +417,8 @@
                     </div>
                 </div>
                 <div class="measure-actions">
-                    <button id="btn-measure-clear" class="xbox-btn sm full-width ghost">CLEAR</button>
-                    <button id="btn-measure-done" class="xbox-btn sm full-width accent">DONE / DEACTIVATE</button>
+                    <button id="btn-measure-clear" class="xbox-btn sm full-width ghost">CLEAR FROM MAP</button>
+                    <button id="btn-measure-done" class="xbox-btn sm full-width accent">DONE (KEEP LINES)</button>
                 </div>
             </div>
         </div>

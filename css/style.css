@@ -605,7 +605,12 @@ input[type="date"].xbox-input {
 
 /* Dark base map Xbox styling - lighter grey background with green tinted lines */
 .dark-xbox-tiles {
-    filter: brightness(1.6) contrast(1.05) sepia(0.25) hue-rotate(70deg) saturate(0.6);
+    filter: brightness(1.6) contrast(1.1) sepia(0.35) hue-rotate(70deg) saturate(0.7) !important;
+}
+/* Also target tile images directly for broader browser support */
+.dark-xbox-tiles img,
+.dark-xbox-tiles .leaflet-tile {
+    filter: brightness(1.6) contrast(1.1) sepia(0.35) hue-rotate(70deg) saturate(0.7) !important;
 }
 
 /* Override Leaflet styles for Xbox look */

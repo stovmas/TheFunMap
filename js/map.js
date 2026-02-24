@@ -51,6 +51,9 @@ FunMap.Map = {
             this.baseLayers.dark.addTo(this.map);
         }
 
+        // Ensure dark tiles class is applied (fallback for className option)
+        this._applyDarkTileClass();
+
         // Set radio button
         const radio = document.querySelector(`input[name="basemap"][value="${savedBase}"]`);
         if (radio) radio.checked = true;
@@ -104,8 +107,20 @@ FunMap.Map = {
             this.currentBase = key;
             FunMap.Settings.set('basemap', key);
         }
+        // Ensure dark tiles class is applied
+        this._applyDarkTileClass();
         // Check buildings visibility (only on Street/OSM map at high zoom)
         this._checkBuildings();
+    },
+
+    _applyDarkTileClass() {
+        // Manually ensure the dark tile layer container has the Xbox class
+        if (this.currentBase === 'dark' && this.baseLayers.dark) {
+            const container = this.baseLayers.dark.getContainer();
+            if (container && !container.classList.contains('dark-xbox-tiles')) {
+                container.classList.add('dark-xbox-tiles');
+            }
+        }
     },
 
     _checkZoomLayers() {

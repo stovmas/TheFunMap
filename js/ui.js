@@ -102,6 +102,9 @@ FunMap.UI = {
             FunMap.Sentinel._refreshS1();
         }
 
+        // Refresh available dates for the date pickers
+        FunMap.Sentinel.refreshGlobalAvailableDates();
+
         FunMap.Utils.setStatus('FILTER APPLIED');
         FunMap.Utils.toast('Date filter applied', 'success');
     },
@@ -190,10 +193,13 @@ FunMap.UI = {
         const btn = document.getElementById('btn-measure');
         btn.addEventListener('click', () => {
             if (this._measuringActive) {
-                // Deactivate measurement mode
+                // Deactivate measurement mode (lines stay on map)
                 this._deactivateMeasure();
+            } else if (this._measureLayers.getLayers().length > 0) {
+                // Has existing measurements - show panel to manage them
+                document.getElementById('measure-panel').classList.toggle('hidden');
             } else {
-                // Activate measurement mode
+                // Start fresh measurement
                 document.getElementById('measure-panel').classList.remove('hidden');
                 this._startMeasure();
             }
@@ -201,10 +207,7 @@ FunMap.UI = {
 
         document.getElementById('btn-measure-clear').addEventListener('click', () => {
             this._clearMeasure();
-            // Restart measuring after clear
-            if (this._measuringActive) {
-                this._measurePoints = [];
-            }
+            // If still in active mode, ready for new measurements
         });
 
         // DONE / DEACTIVATE button
@@ -244,7 +247,7 @@ FunMap.UI = {
         this._measuringActive = false;
         document.getElementById('btn-measure').classList.remove('measure-active');
         document.getElementById('measure-panel').classList.add('hidden');
-        this._clearMeasure();
+        // Lines/markers stay on the map - only CLEAR button removes them
         FunMap.Utils.setStatus('SYSTEMS ONLINE');
     },
 

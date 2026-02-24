@@ -116,6 +116,7 @@ FunMap.Sentinel = {
             return;
         }
         this._refreshS2();
+        this.refreshGlobalAvailableDates();
     },
 
     _disableS2() {
@@ -225,6 +226,7 @@ FunMap.Sentinel = {
             return;
         }
         this._refreshS1();
+        this.refreshGlobalAvailableDates();
     },
 
     _disableS1() {
@@ -329,6 +331,7 @@ FunMap.Sentinel = {
     _compareMap: null,
     _sliderPos: 0.5, // 0-1 position
     _compareImageCache: { left: null, right: null },
+    _compareBounds: null, // locked bounds for both sides
 
     _openCompare(sensor) {
         const zoom = FunMap.Map.getZoom();
@@ -412,16 +415,18 @@ FunMap.Sentinel = {
             this._updateCompareClip();
         });
 
-        // Load both images
+        // Lock bounds and load both images with same geographic extent
+        this._compareBounds = this._compareMap.getBounds();
         this._loadCompareImage('left');
         this._loadCompareImage('right');
 
         // Fetch available dates for date pickers
         this._fetchAvailableDates();
 
-        // Wire up Apply button
+        // Wire up Apply button - re-lock bounds and reload both
         this._compareHandlers = {
             apply: () => {
+                this._compareBounds = this._compareMap.getBounds();
                 this._loadCompareImage('left');
                 this._loadCompareImage('right');
                 this._fetchAvailableDates();
@@ -497,16 +502,12 @@ FunMap.Sentinel = {
         }
     },
 
-    async _fetchAvailableDates() {
-        if (!this._compareMode) return;
+    // Shared: fetch available image dates from CDSE catalog and populate datalists
+    async fetchAvailableDatesFor(collectionId, bounds, datalistIds, showToast) {
         try {
             const token = await FunMap.Settings.getCDSEToken();
-            const bounds = this._compareMap.getBounds();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
 
-            const collectionId = this._compareMode === 's2' ? 'sentinel-2-l2a' : 'sentinel-1-grd';
-
-            // Search last 90 days
             const from = FunMap.Utils.daysAgo(90);
             const to = FunMap.Utils.toISODate(new Date());
 
@@ -527,7 +528,7 @@ FunMap.Sentinel = {
                 body: JSON.stringify(searchBody),
             });
 
-            if (!response.ok) return;
+            if (!response.ok) return [];
 
             const data = await response.json();
             const dateSet = new Set();
@@ -541,22 +542,60 @@ FunMap.Sentinel = {
 
             const sortedDates = Array.from(dateSet).sort().reverse();
 
-            // Populate datalists for both date pickers
-            const leftList = document.getElementById('compare-dates-left');
-            const rightList = document.getElementById('compare-dates-right');
-            leftList.innerHTML = '';
-            rightList.innerHTML = '';
-            sortedDates.forEach(d => {
-                leftList.appendChild(new Option(d, d));
-                rightList.appendChild(new Option(d, d));
+            // Populate all specified datalists
+            datalistIds.forEach(id => {
+                const dl = document.getElementById(id);
+                if (dl) {
+                    dl.innerHTML = '';
+                    sortedDates.forEach(d => dl.appendChild(new Option(d, d)));
+                }
             });
 
-            if (sortedDates.length > 0) {
+            if (showToast && sortedDates.length > 0) {
                 FunMap.Utils.toast(`${sortedDates.length} image dates available (last 90 days)`, 'info');
             }
+            return sortedDates;
         } catch (err) {
             console.warn('Could not fetch available dates:', err);
+            return [];
         }
+    },
+
+    async _fetchAvailableDates() {
+        if (!this._compareMode || !this._compareMap) return;
+        const collectionId = this._compareMode === 's2' ? 'sentinel-2-l2a' : 'sentinel-1-grd';
+        const bounds = this._compareMap.getBounds();
+        await this.fetchAvailableDatesFor(collectionId, bounds,
+            ['compare-dates-left', 'compare-dates-right'], true);
+    },
+
+    // Fetch available dates for global date filter pickers
+    async refreshGlobalAvailableDates() {
+        const zoom = FunMap.Map.getZoom();
+        const minZoom = FunMap.Settings.get('sentinel_zoom', FunMap.Config.Defaults.sentinelMinZoom);
+        if (zoom < minZoom) return;
+
+        const clientId = FunMap.Settings.getApiKey('cdse_client_id');
+        if (!clientId) return;
+
+        const bounds = FunMap.Map.getBounds();
+        // Fetch for S2 by default (most commonly used), also for S1
+        const s2Active = document.getElementById('layer-sentinel2').checked;
+        const s1Active = document.getElementById('layer-sentinel1').checked;
+        const collectionId = s2Active ? 'sentinel-2-l2a' : (s1Active ? 'sentinel-1-grd' : 'sentinel-2-l2a');
+
+        await this.fetchAvailableDatesFor(collectionId, bounds,
+            ['global-dates-available'], false);
+    },
+
+    // Fetch available dates for change detection
+    async refreshChangeDatesAvailable() {
+        const clientId = FunMap.Settings.getApiKey('cdse_client_id');
+        if (!clientId) return;
+
+        const bounds = FunMap.Map.getBounds();
+        await this.fetchAvailableDatesFor('sentinel-1-grd', bounds,
+            ['change-dates-available'], false);
     },
 
     async _loadCompareImage(side) {
@@ -572,7 +611,8 @@ FunMap.Sentinel = {
             if (!dateVal) return;
 
             const map = this._compareMap;
-            const bounds = map.getBounds();
+            // Use locked bounds so both sides have identical geographic extent
+            const bounds = this._compareBounds || map.getBounds();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
             const mapSize = map.getSize();
             const width = Math.min(mapSize.x, 2048);
@@ -612,11 +652,12 @@ FunMap.Sentinel = {
                 };
             }
 
-            // Widen time range to +/- 15 days for better mosaic
+            // Use a narrow ±5 day window to keep imagery from the same orbit pass
+            // This prevents mixing strips from different geographic swaths
             const fromDate = new Date(dateVal);
-            fromDate.setDate(fromDate.getDate() - 15);
+            fromDate.setDate(fromDate.getDate() - 5);
             const toDate = new Date(dateVal);
-            toDate.setDate(toDate.getDate() + 15);
+            toDate.setDate(toDate.getDate() + 5);
             dataConfig.dataFilter.timeRange = {
                 from: FunMap.Utils.toISODate(fromDate) + 'T00:00:00Z',
                 to: FunMap.Utils.toISODate(toDate) + 'T23:59:59Z',
@@ -665,6 +706,7 @@ FunMap.Sentinel = {
                 map.removeLayer(this._compareLayers[side]);
             }
 
+            // Both sides use the same locked bounds for identical geographic placement
             const zIndex = side === 'right' ? 650 : 600;
             this._compareLayers[side] = L.imageOverlay(imageUrl, bounds, {
                 opacity: 0.9,
@@ -714,6 +756,7 @@ FunMap.Sentinel = {
         if (this._compareImageCache.right) URL.revokeObjectURL(this._compareImageCache.right);
         this._compareImageCache = { left: null, right: null };
         this._compareLayers = { left: null, right: null };
+        this._compareBounds = null;
         this._compareMode = null;
 
         // Clear map container for reinit
@@ -755,6 +798,9 @@ FunMap.Sentinel = {
         // Set default dates
         document.getElementById('change-date-a').value = FunMap.Utils.daysAgo(30);
         document.getElementById('change-date-b').value = FunMap.Utils.daysAgo(0);
+
+        // Fetch available S1 dates for the date pickers
+        this.refreshChangeDatesAvailable();
 
         FunMap.Utils.setStatus('CHANGE DETECTION MODE');
     },
