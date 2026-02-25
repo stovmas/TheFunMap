@@ -10,6 +10,7 @@ FunMap.Sentinel = {
     _compareLayers: { left: null, right: null },
     _changeLayer: null,
     _changeMode: false,
+    _fetchGeneration: {},  // keyed by calendar group, cancels stale fetches
 
     init() {
         // S2 layer toggle
@@ -518,8 +519,14 @@ FunMap.Sentinel = {
     },
 
     // Shared: fetch available image dates from CDSE catalog and highlight on calendars
-    // Paginates through all results over the last 2 years
+    // Paginates through all results over the last 2 years.
+    // Uses a generation counter so overlapping calls for the same calendar group
+    // don't race — only the latest request applies its results.
     async fetchAvailableDatesFor(collectionId, bounds, calendarInputIds, showToast) {
+        const fetchKey = calendarInputIds.join(',');
+        const generation = (this._fetchGeneration[fetchKey] || 0) + 1;
+        this._fetchGeneration[fetchKey] = generation;
+
         try {
             const token = await FunMap.Settings.getCDSEToken();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
@@ -531,6 +538,9 @@ FunMap.Sentinel = {
             const maxPages = 10; // safety cap
 
             for (let page = 0; page < maxPages; page++) {
+                // Abort if a newer fetch has started for this calendar group
+                if (this._fetchGeneration[fetchKey] !== generation) return [];
+
                 const searchBody = {
                     bbox: bbox,
                     datetime: `${from}T00:00:00Z/${to}T23:59:59Z`,
@@ -575,10 +585,15 @@ FunMap.Sentinel = {
                     break; // no more pages
                 }
 
-                // Update calendars progressively so user sees results as they load
-                const sortedSoFar = Array.from(dateSet).sort().reverse();
-                FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, sortedSoFar);
+                // Update calendars progressively (only if still the latest request)
+                if (this._fetchGeneration[fetchKey] === generation) {
+                    const sortedSoFar = Array.from(dateSet).sort().reverse();
+                    FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, sortedSoFar);
+                }
             }
+
+            // Final update (only if still the latest request)
+            if (this._fetchGeneration[fetchKey] !== generation) return [];
 
             const sortedDates = Array.from(dateSet).sort().reverse();
             FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, sortedDates);
