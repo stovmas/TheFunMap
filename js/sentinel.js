@@ -333,6 +333,7 @@ FunMap.Sentinel = {
     _sliderPos: 0.5, // 0-1 position
     _compareImageCache: { left: null, right: null },
     _compareBounds: null, // locked bounds for both sides
+    _compareLoadGen: { left: 0, right: 0 }, // generation counter per side
 
     _openCompare(sensor) {
         const zoom = FunMap.Map.getZoom();
@@ -471,27 +472,29 @@ FunMap.Sentinel = {
             this._updateCompareClip();
         };
 
+        // Store named handlers so we can remove them on close
+        this._sliderHandlers = {
+            mouseMove: (e) => { if (dragging) onMove(e.clientX); },
+            mouseUp: () => { dragging = false; },
+            touchMove: (e) => { if (dragging) onMove(e.touches[0].clientX); },
+            touchEnd: () => { dragging = false; },
+        };
+
         // Mouse events
         slider.addEventListener('mousedown', (e) => {
             dragging = true;
             e.preventDefault();
         });
-        document.addEventListener('mousemove', (e) => {
-            if (!dragging) return;
-            onMove(e.clientX);
-        });
-        document.addEventListener('mouseup', () => { dragging = false; });
+        document.addEventListener('mousemove', this._sliderHandlers.mouseMove);
+        document.addEventListener('mouseup', this._sliderHandlers.mouseUp);
 
         // Touch events
         slider.addEventListener('touchstart', (e) => {
             dragging = true;
             e.preventDefault();
         }, { passive: false });
-        document.addEventListener('touchmove', (e) => {
-            if (!dragging) return;
-            onMove(e.touches[0].clientX);
-        });
-        document.addEventListener('touchend', () => { dragging = false; });
+        document.addEventListener('touchmove', this._sliderHandlers.touchMove);
+        document.addEventListener('touchend', this._sliderHandlers.touchEnd);
     },
 
     _updateSliderPosition(pos) {
@@ -644,8 +647,13 @@ FunMap.Sentinel = {
     async _loadCompareImage(side) {
         if (!this._compareMode || !this._compareMap) return;
 
+        // Generation counter prevents stale responses from overwriting newer ones
+        const gen = ++this._compareLoadGen[side];
+
         try {
             const token = await FunMap.Settings.getCDSEToken();
+            if (this._compareLoadGen[side] !== gen) return; // superseded
+
             const dateInput = document.getElementById(`compare-date-${side}`);
             const vizSelect = document.getElementById(`compare-viz-${side}`);
             const dateVal = dateInput.value;
@@ -738,6 +746,12 @@ FunMap.Sentinel = {
 
             const blob = await response.blob();
 
+            // Abort if a newer request has superseded this one
+            if (this._compareLoadGen[side] !== gen) {
+                URL.revokeObjectURL(URL.createObjectURL(blob));
+                return;
+            }
+
             // Revoke old cached URL
             if (this._compareImageCache[side]) {
                 URL.revokeObjectURL(this._compareImageCache[side]);
@@ -789,6 +803,15 @@ FunMap.Sentinel = {
             this._compareHandlers = null;
         }
 
+        // Remove document-level slider listeners
+        if (this._sliderHandlers) {
+            document.removeEventListener('mousemove', this._sliderHandlers.mouseMove);
+            document.removeEventListener('mouseup', this._sliderHandlers.mouseUp);
+            document.removeEventListener('touchmove', this._sliderHandlers.touchMove);
+            document.removeEventListener('touchend', this._sliderHandlers.touchEnd);
+            this._sliderHandlers = null;
+        }
+
         // Destroy compare map
         if (this._compareMap) {
             this._compareMap.remove();
@@ -801,6 +824,7 @@ FunMap.Sentinel = {
         this._compareLayers = { left: null, right: null };
         this._compareBounds = null;
         this._compareMode = null;
+        this._compareLoadGen = { left: 0, right: 0 };
 
         // Clear map container for reinit
         document.getElementById('compare-map-single').innerHTML = '';

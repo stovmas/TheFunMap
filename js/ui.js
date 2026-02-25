@@ -53,6 +53,16 @@ FunMap.UI = {
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                // Close compare mode properly (not just hide the panel)
+                if (FunMap.Sentinel._compareMode) {
+                    FunMap.Sentinel._closeCompare();
+                    return;
+                }
+                // Close change detection properly
+                if (FunMap.Sentinel._changeMode) {
+                    FunMap.Sentinel._closeChangeDetection();
+                    return;
+                }
                 // Deactivate measurement if active
                 if (this._measuringActive) {
                     this._deactivateMeasure();
@@ -228,6 +238,12 @@ FunMap.UI = {
     },
 
     _startMeasure() {
+        // Remove any existing handlers first to prevent stacking
+        if (this._measureClickHandler) {
+            FunMap.Map.map.off('click', this._measureClickHandler);
+            FunMap.Map.map.off('dblclick', this._measureDblClickHandler);
+        }
+
         this._measuringActive = true;
         this._measurePoints = [];
         const btn = document.getElementById('btn-measure');

@@ -149,7 +149,7 @@ FunMap.Conflict = {
 
     _ucdpTypeKey(type) {
         const keys = { 1: 'state-based', 2: 'non-state', 3: 'one-sided' };
-        return keys[type] || 'battles';
+        return keys[type] || 'state-based';
     },
 
     async _loadACLED() {
@@ -158,6 +158,7 @@ FunMap.Conflict = {
 
         if (!acledKey || !acledEmail) {
             FunMap.Utils.toast('Configure ACLED API key and email in Settings', 'warning');
+            this._loading = false;
             return;
         }
 
