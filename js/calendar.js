@@ -9,8 +9,10 @@ FunMap.Calendar = {
     /**
      * Attach a calendar to a text input.
      * @param {string} inputId - The input element ID
+     * @param {Object} [opts] - Options
+     * @param {Function} [opts.onOpen] - Callback when calendar opens (for lazy-loading dates)
      */
-    attach(inputId) {
+    attach(inputId, opts) {
         const input = document.getElementById(inputId);
         if (!input || this._instances[inputId]) return;
 
@@ -33,6 +35,7 @@ FunMap.Calendar = {
             availableDates: new Set(),
             year: now.getFullYear(),
             month: now.getMonth(),
+            onOpen: (opts && opts.onOpen) ? opts.onOpen : null,
         };
         this._instances[inputId] = inst;
 
@@ -120,6 +123,8 @@ FunMap.Calendar = {
             this._render(inputId);
             this._position(inputId);
             inst.panel.classList.remove('hidden');
+            // Fire onOpen callback (e.g. to lazy-fetch available dates)
+            if (inst.onOpen) inst.onOpen(inputId);
         } else {
             inst.panel.classList.add('hidden');
         }

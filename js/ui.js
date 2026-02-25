@@ -71,8 +71,12 @@ FunMap.UI = {
 
     _initDateFilter() {
         // Attach custom calendars to global date inputs
-        FunMap.Calendar.attach('global-date-from');
-        FunMap.Calendar.attach('global-date-to');
+        // onOpen fetches available satellite dates whenever the calendar is opened
+        const globalCalOpts = {
+            onOpen: () => FunMap.Sentinel.refreshGlobalAvailableDates(),
+        };
+        FunMap.Calendar.attach('global-date-from', globalCalOpts);
+        FunMap.Calendar.attach('global-date-to', globalCalOpts);
 
         // Set defaults
         const today = FunMap.Utils.toISODate(new Date());
@@ -89,6 +93,9 @@ FunMap.UI = {
             FunMap.Calendar.setValue('global-date-to', FunMap.Utils.toISODate(new Date()));
             this._applyDateFilter();
         });
+
+        // Pre-fetch available dates so calendars have green highlights on first open
+        setTimeout(() => FunMap.Sentinel.refreshGlobalAvailableDates(), 1500);
     },
 
     _applyDateFilter() {

@@ -384,8 +384,11 @@ FunMap.Sentinel = {
         }
 
         // Attach calendars to compare date inputs
-        FunMap.Calendar.attach('compare-date-left');
-        FunMap.Calendar.attach('compare-date-right');
+        const compareCalOpts = {
+            onOpen: () => this._fetchAvailableDates(),
+        };
+        FunMap.Calendar.attach('compare-date-left', compareCalOpts);
+        FunMap.Calendar.attach('compare-date-right', compareCalOpts);
 
         // Set default dates
         const dates = FunMap.UI.getDateRange();
@@ -568,11 +571,8 @@ FunMap.Sentinel = {
     },
 
     // Fetch available dates for global date filter pickers
+    // No zoom restriction — dates exist regardless of current zoom level
     async refreshGlobalAvailableDates() {
-        const zoom = FunMap.Map.getZoom();
-        const minZoom = FunMap.Settings.get('sentinel_zoom', FunMap.Config.Defaults.sentinelMinZoom);
-        if (zoom < minZoom) return;
-
         const clientId = FunMap.Settings.getApiKey('cdse_client_id');
         if (!clientId) return;
 
@@ -789,8 +789,11 @@ FunMap.Sentinel = {
         document.getElementById('change-toolbar').classList.remove('hidden');
 
         // Attach calendars to change detection date inputs
-        FunMap.Calendar.attach('change-date-a');
-        FunMap.Calendar.attach('change-date-b');
+        const changeCalOpts = {
+            onOpen: () => this.refreshChangeDatesAvailable(),
+        };
+        FunMap.Calendar.attach('change-date-a', changeCalOpts);
+        FunMap.Calendar.attach('change-date-b', changeCalOpts);
 
         // Set default dates
         FunMap.Calendar.setValue('change-date-a', FunMap.Utils.daysAgo(30));
