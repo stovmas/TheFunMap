@@ -510,50 +510,73 @@ FunMap.Sentinel = {
     },
 
     // Shared: fetch available image dates from CDSE catalog and highlight on calendars
+    // Paginates through all results over the last 2 years
     async fetchAvailableDatesFor(collectionId, bounds, calendarInputIds, showToast) {
         try {
             const token = await FunMap.Settings.getCDSEToken();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
 
-            const from = FunMap.Utils.daysAgo(90);
+            const from = FunMap.Utils.daysAgo(730); // ~2 years
             const to = FunMap.Utils.toISODate(new Date());
-
-            const searchBody = {
-                bbox: bbox,
-                datetime: `${from}T00:00:00Z/${to}T23:59:59Z`,
-                collections: [collectionId],
-                limit: 100,
-                fields: { include: ['properties.datetime'] },
-            };
-
-            const response = await fetch(FunMap.Config.CDSE.catalogEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(searchBody),
-            });
-
-            if (!response.ok) return [];
-
-            const data = await response.json();
             const dateSet = new Set();
-            if (data.features) {
-                data.features.forEach(f => {
-                    if (f.properties && f.properties.datetime) {
-                        dateSet.add(f.properties.datetime.split('T')[0]);
-                    }
+            let nextToken = null;
+            const maxPages = 10; // safety cap
+
+            for (let page = 0; page < maxPages; page++) {
+                const searchBody = {
+                    bbox: bbox,
+                    datetime: `${from}T00:00:00Z/${to}T23:59:59Z`,
+                    collections: [collectionId],
+                    limit: 100,
+                    fields: { include: ['properties.datetime'] },
+                };
+                if (nextToken) searchBody.next = nextToken;
+
+                const response = await fetch(FunMap.Config.CDSE.catalogEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(searchBody),
                 });
+
+                if (!response.ok) break;
+
+                const data = await response.json();
+                if (data.features) {
+                    data.features.forEach(f => {
+                        if (f.properties && f.properties.datetime) {
+                            dateSet.add(f.properties.datetime.split('T')[0]);
+                        }
+                    });
+                }
+
+                // Check for next page via STAC context
+                const ctx = data.context;
+                if (ctx && ctx.next) {
+                    nextToken = ctx.next;
+                } else if (data.links) {
+                    const nextLink = data.links.find(l => l.rel === 'next');
+                    if (nextLink && nextLink.body && nextLink.body.next) {
+                        nextToken = nextLink.body.next;
+                    } else {
+                        break; // no more pages
+                    }
+                } else {
+                    break; // no more pages
+                }
+
+                // Update calendars progressively so user sees results as they load
+                const sortedSoFar = Array.from(dateSet).sort().reverse();
+                FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, sortedSoFar);
             }
 
             const sortedDates = Array.from(dateSet).sort().reverse();
-
-            // Highlight available dates on all specified calendar inputs
             FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, sortedDates);
 
             if (showToast && sortedDates.length > 0) {
-                FunMap.Utils.toast(`${sortedDates.length} image dates available (last 90 days)`, 'info');
+                FunMap.Utils.toast(`${sortedDates.length} image dates available`, 'info');
             }
             return sortedDates;
         } catch (err) {
