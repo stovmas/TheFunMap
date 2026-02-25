@@ -417,10 +417,18 @@ FunMap.Sentinel = {
         // Setup slider
         this._initCompareSlider();
 
-        // Update clip on map move/zoom
+        // Update clip on map move/zoom, and keep status bar in sync
         this._compareMap.on('move zoom viewreset', () => {
             this._updateCompareClip();
         });
+        this._compareMap.on('zoomend', () => {
+            document.getElementById('zoom-level').textContent =
+                Math.round(this._compareMap.getZoom());
+        });
+        this._compareMap.on('mousemove', FunMap.Utils.throttle((e) => {
+            document.getElementById('cursor-coords').textContent =
+                FunMap.Utils.formatCoords(e.latlng.lat, e.latlng.lng);
+        }, 50));
 
         // Lock bounds and load both images with same geographic extent
         this._compareBounds = this._compareMap.getBounds();
@@ -787,8 +795,10 @@ FunMap.Sentinel = {
         document.getElementById('compare-container').classList.add('hidden');
         document.getElementById('compare-toolbar').classList.add('hidden');
 
-        // Force main map to recalculate size
+        // Force main map to recalculate size and restore zoom ticker
         FunMap.Map.map.invalidateSize();
+        document.getElementById('zoom-level').textContent =
+            Math.round(FunMap.Map.getZoom());
         FunMap.Utils.setStatus('SYSTEMS ONLINE');
     },
 
