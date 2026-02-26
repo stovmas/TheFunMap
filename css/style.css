@@ -741,6 +741,28 @@ textarea.xbox-input {
 }
 .compare-label-left { left: 12px; }
 .compare-label-right { right: 12px; }
+.compare-loading {
+    position: absolute;
+    top: 50%;
+    z-index: 510;
+    transform: translateY(-50%);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--xbox-green);
+    background: var(--xbox-panel);
+    border: 1px solid var(--xbox-panel-border);
+    padding: 8px 18px;
+    pointer-events: none;
+    animation: xbox-pulse 1.2s ease-in-out infinite;
+}
+#compare-loading-left { left: 25%; transform: translate(-50%, -50%); }
+#compare-loading-right { right: 25%; transform: translate(50%, -50%); }
+@keyframes xbox-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
 #compare-toolbar {
     position: absolute;
     top: 8px;

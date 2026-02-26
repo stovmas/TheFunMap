@@ -703,18 +703,24 @@ FunMap.Sentinel = {
                 };
             }
 
-            // Use a narrow ±5 day window to keep imagery from the same orbit pass
-            // This prevents mixing strips from different geographic swaths
+            // Use a date window sized to the sensor's revisit period so we're
+            // likely to capture at least one full pass over the area.
+            // S2 revisit ≈ 5 days, S1 revisit ≈ 12 days.
+            const halfWindow = this._compareMode === 's1' ? 12 : 5;
             const fromDate = new Date(dateVal);
-            fromDate.setDate(fromDate.getDate() - 5);
+            fromDate.setDate(fromDate.getDate() - halfWindow);
             const toDate = new Date(dateVal);
-            toDate.setDate(toDate.getDate() + 5);
+            toDate.setDate(toDate.getDate() + halfWindow);
             dataConfig.dataFilter.timeRange = {
                 from: FunMap.Utils.toISODate(fromDate) + 'T00:00:00Z',
                 to: FunMap.Utils.toISODate(toDate) + 'T23:59:59Z',
             };
 
             FunMap.Utils.setStatus(`LOADING ${side.toUpperCase()} IMAGE...`);
+
+            // Show per-side loading spinner
+            const loadingEl = document.getElementById(`compare-loading-${side}`);
+            if (loadingEl) loadingEl.classList.remove('hidden');
 
             const requestBody = {
                 input: {
@@ -789,8 +795,13 @@ FunMap.Sentinel = {
                 });
             }
 
+            // Hide loading spinner
+            if (loadingEl) loadingEl.classList.add('hidden');
             FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
         } catch (err) {
+            // Hide loading spinner on error too
+            const loadEl = document.getElementById(`compare-loading-${side}`);
+            if (loadEl) loadEl.classList.add('hidden');
             console.error(`Compare ${side} error:`, err);
             FunMap.Utils.toast(`Compare ${side}: ${err.message}`, 'error');
         }
