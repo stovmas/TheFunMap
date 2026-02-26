@@ -169,7 +169,7 @@ FunMap.Sentinel = {
                                 to: dates.to + 'T23:59:59Z',
                             },
                             maxCloudCoverage: parseInt(cloud),
-                            mosaickingOrder: 'leastCC',
+                            mosaickingOrder: 'mostRecent',
                         },
                     }],
                 },
@@ -691,10 +691,6 @@ FunMap.Sentinel = {
                             to: dateVal + 'T23:59:59Z',
                         },
                         maxCloudCoverage: parseInt(document.getElementById('s2-cloud').value),
-                        // Use mostRecent so adjacent tiles come from the same
-                        // pass, giving a visually consistent image instead of
-                        // the patchwork that leastCC produces (different dates
-                        // per tile = different atmospheric conditions = seams).
                         mosaickingOrder: 'mostRecent',
                     },
                 };
@@ -716,20 +712,6 @@ FunMap.Sentinel = {
                     },
                 };
             }
-
-            // Use a window wide enough for complete spatial coverage.
-            // Each S2 pass covers a ~290km swath; ±15 days (30-day window)
-            // gives enough overlapping passes to tile the full bbox, matching
-            // the normal S2 view's default range.  S1 uses ±12 (one full cycle).
-            const halfWindow = this._compareMode === 's1' ? 12 : 15;
-            const fromDate = new Date(dateVal);
-            fromDate.setDate(fromDate.getDate() - halfWindow);
-            const toDate = new Date(dateVal);
-            toDate.setDate(toDate.getDate() + halfWindow);
-            dataConfig.dataFilter.timeRange = {
-                from: FunMap.Utils.toISODate(fromDate) + 'T00:00:00Z',
-                to: FunMap.Utils.toISODate(toDate) + 'T23:59:59Z',
-            };
 
             FunMap.Utils.setStatus(`LOADING ${side.toUpperCase()} IMAGE...`);
 
