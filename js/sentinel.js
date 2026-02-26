@@ -508,19 +508,19 @@ FunMap.Sentinel = {
     },
 
     _updateCompareClip() {
-        // Clip the right image's custom pane at the slider position.
-        // We clip the PANE rather than the image element because Leaflet
-        // positions images with CSS transforms (translate3d + scale during
-        // zoom).  clipPath:inset() operates in pre-transform local coords
-        // while getBoundingClientRect() returns post-transform values,
-        // causing diagonal/offset glitches.  The pane has no transform so
-        // container-relative pixel values map directly.
-        if (!this._compareMap) return;
-        const pane = this._compareMap.getPane('compareRightPane');
-        if (pane) {
+        // Clip the right (after) image at the slider position
+        if (this._compareLayers.right && this._compareLayers.right._image) {
+            const img = this._compareLayers.right._image;
             const containerWidth = document.getElementById('compare-container').offsetWidth;
             const sliderPx = this._sliderPos * containerWidth;
-            pane.style.clipPath = `inset(0 0 0 ${sliderPx}px)`;
+
+            // Convert slider position from container coords to image-element coords
+            const mapContainer = document.getElementById('compare-map-single');
+            const mapRect = mapContainer.getBoundingClientRect();
+            const imgRect = img.getBoundingClientRect();
+            const clipLeft = sliderPx - (imgRect.left - mapRect.left);
+
+            img.style.clipPath = `inset(0 0 0 ${clipLeft}px)`;
         }
     },
 
@@ -790,8 +790,7 @@ FunMap.Sentinel = {
                 map.removeLayer(this._compareLayers[side]);
             }
 
-            // Put right image in its own custom pane so we can clip it
-            // without affecting the left image (both share overlayPane otherwise)
+            // Use a custom pane for the right image so it renders above the left
             const overlayOpts = { opacity: 0.9 };
             if (side === 'right') {
                 if (!map.getPane('compareRightPane')) {
@@ -803,7 +802,8 @@ FunMap.Sentinel = {
             this._compareLayers[side] = L.imageOverlay(imageUrl, bounds, overlayOpts);
             this._compareLayers[side].addTo(map);
 
-            // Apply clip after image loads (wait a frame for Leaflet positioning)
+            // Apply clip after image loads — wait a frame so Leaflet has
+            // finished positioning the element before we read its rect
             if (side === 'right') {
                 this._compareLayers[side].on('load', () => {
                     requestAnimationFrame(() => this._updateCompareClip());
