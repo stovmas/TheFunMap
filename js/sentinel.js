@@ -691,7 +691,11 @@ FunMap.Sentinel = {
                             to: dateVal + 'T23:59:59Z',
                         },
                         maxCloudCoverage: parseInt(document.getElementById('s2-cloud').value),
-                        mosaickingOrder: 'leastCC',
+                        // Use mostRecent so adjacent tiles come from the same
+                        // pass, giving a visually consistent image instead of
+                        // the patchwork that leastCC produces (different dates
+                        // per tile = different atmospheric conditions = seams).
+                        mosaickingOrder: 'mostRecent',
                     },
                 };
             } else {
