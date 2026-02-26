@@ -713,10 +713,11 @@ FunMap.Sentinel = {
                 };
             }
 
-            // Use a date window sized to the sensor's revisit period so we're
-            // likely to capture at least one full pass over the area.
-            // S2 revisit ≈ 5 days, S1 revisit ≈ 12 days.
-            const halfWindow = this._compareMode === 's1' ? 12 : 5;
+            // Use a window wide enough for complete spatial coverage.
+            // Each S2 pass covers a ~290km swath; ±15 days (30-day window)
+            // gives enough overlapping passes to tile the full bbox, matching
+            // the normal S2 view's default range.  S1 uses ±12 (one full cycle).
+            const halfWindow = this._compareMode === 's1' ? 12 : 15;
             const fromDate = new Date(dateVal);
             fromDate.setDate(fromDate.getDate() - halfWindow);
             const toDate = new Date(dateVal);
