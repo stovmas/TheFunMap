@@ -11,6 +11,7 @@ FunMap.Sentinel = {
     _changeLayer: null,
     _changeMode: false,
     _fetchGeneration: {},  // keyed by calendar group, cancels stale fetches
+    _dateCloudCache: {},   // keyed by calendar group, stores { allDates, cloudMap, collectionId, calendarInputIds }
 
     init() {
         // S2 layer toggle
@@ -51,6 +52,7 @@ FunMap.Sentinel = {
             cloudVal.textContent = cloudSlider.value + '%';
         });
         cloudSlider.addEventListener('change', () => {
+            this._refilterDates();
             if (document.getElementById('layer-sentinel2').checked) {
                 this._refreshS2();
             }
@@ -537,11 +539,16 @@ FunMap.Sentinel = {
             const token = await FunMap.Settings.getCDSEToken();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
 
+            const isS2 = collectionId === 'sentinel-2-l2a';
             const from = FunMap.Utils.daysAgo(730); // ~2 years
             const to = FunMap.Utils.toISODate(new Date());
             const dateSet = new Set();
+            const cloudMap = {};  // date -> min cloud cover %
             let nextToken = null;
             const maxPages = 10; // safety cap
+
+            const fieldsInclude = ['properties.datetime'];
+            if (isS2) fieldsInclude.push('properties.eo:cloud_cover');
 
             for (let page = 0; page < maxPages; page++) {
                 // Abort if a newer fetch has started for this calendar group
@@ -552,7 +559,7 @@ FunMap.Sentinel = {
                     datetime: `${from}T00:00:00Z/${to}T23:59:59Z`,
                     collections: [collectionId],
                     limit: 100,
-                    fields: { include: ['properties.datetime'] },
+                    fields: { include: fieldsInclude },
                 };
                 if (nextToken) searchBody.next = nextToken;
 
@@ -571,7 +578,15 @@ FunMap.Sentinel = {
                 if (data.features) {
                     data.features.forEach(f => {
                         if (f.properties && f.properties.datetime) {
-                            dateSet.add(f.properties.datetime.split('T')[0]);
+                            const date = f.properties.datetime.split('T')[0];
+                            dateSet.add(date);
+                            // Track minimum cloud cover per date (best tile)
+                            const cc = f.properties['eo:cloud_cover'];
+                            if (cc !== undefined && cc !== null) {
+                                if (!(date in cloudMap) || cc < cloudMap[date]) {
+                                    cloudMap[date] = cc;
+                                }
+                            }
                         }
                     });
                 }
@@ -593,8 +608,8 @@ FunMap.Sentinel = {
 
                 // Update calendars progressively (only if still the latest request)
                 if (this._fetchGeneration[fetchKey] === generation) {
-                    const sortedSoFar = Array.from(dateSet).sort().reverse();
-                    FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, sortedSoFar);
+                    const filteredSoFar = this._filterDatesByCloud(Array.from(dateSet), cloudMap, isS2);
+                    FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, filteredSoFar);
                 }
             }
 
@@ -603,16 +618,26 @@ FunMap.Sentinel = {
 
             const sortedDates = Array.from(dateSet).sort().reverse();
 
+            // Cache raw results so the cloud slider can re-filter without re-fetching
+            this._dateCloudCache[fetchKey] = {
+                allDates: sortedDates,
+                cloudMap: cloudMap,
+                collectionId: collectionId,
+                calendarInputIds: calendarInputIds,
+            };
+
+            const filteredDates = this._filterDatesByCloud(sortedDates, cloudMap, isS2);
+
             // Only update calendars if we actually got results — don't wipe
             // existing dates when the API fails (e.g. token expired mid-request)
-            if (sortedDates.length > 0) {
-                FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, sortedDates);
+            if (filteredDates.length > 0) {
+                FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, filteredDates);
             }
 
             if (showToast && sortedDates.length > 0) {
-                FunMap.Utils.toast(`${sortedDates.length} image dates available`, 'info');
+                FunMap.Utils.toast(`${filteredDates.length} of ${sortedDates.length} dates within cloud limit`, 'info');
             }
-            return sortedDates;
+            return filteredDates;
         } catch (err) {
             console.warn('Could not fetch available dates:', err);
             return [];
@@ -650,6 +675,28 @@ FunMap.Sentinel = {
         const bounds = FunMap.Map.getBounds();
         await this.fetchAvailableDatesFor('sentinel-1-grd', bounds,
             ['change-date-a', 'change-date-b'], false);
+    },
+
+    // Filter dates by current cloud cover slider value.
+    // For S2, only keep dates where at least one tile has cloud cover <= max.
+    // For S1 (no cloud data), all dates pass through.
+    _filterDatesByCloud(dates, cloudMap, isS2) {
+        if (!isS2) return dates;
+        const maxCC = parseInt(document.getElementById('s2-cloud').value);
+        return dates.filter(d => {
+            if (!(d in cloudMap)) return true; // no CC info, include
+            return cloudMap[d] <= maxCC;
+        });
+    },
+
+    // Re-filter all cached calendar groups by the current cloud slider value.
+    // Called when the slider changes — instant, no API call.
+    _refilterDates() {
+        for (const [fetchKey, cache] of Object.entries(this._dateCloudCache)) {
+            const isS2 = cache.collectionId === 'sentinel-2-l2a';
+            const filtered = this._filterDatesByCloud(cache.allDates, cache.cloudMap, isS2);
+            FunMap.Calendar.setAvailableDatesMulti(cache.calendarInputIds, filtered);
+        }
     },
 
     async _loadCompareImage(side) {
