@@ -149,9 +149,11 @@ FunMap.Sentinel = {
             }
 
             // Use the process API to get an image
+            // Account for device pixel ratio so images are sharp on high-DPI screens
             const mapSize = FunMap.Map.map.getSize();
-            const width = Math.min(mapSize.x, 2048);
-            const height = Math.min(mapSize.y, 2048);
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const width = Math.min(Math.round(mapSize.x * dpr), 2500);
+            const height = Math.min(Math.round(mapSize.y * dpr), 2500);
 
             const requestBody = {
                 input: {
@@ -257,8 +259,9 @@ FunMap.Sentinel = {
             }
 
             const mapSize = FunMap.Map.map.getSize();
-            const width = Math.min(mapSize.x, 2048);
-            const height = Math.min(mapSize.y, 2048);
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const width = Math.min(Math.round(mapSize.x * dpr), 2500);
+            const height = Math.min(Math.round(mapSize.y * dpr), 2500);
 
             const requestBody = {
                 input: {
@@ -671,8 +674,10 @@ FunMap.Sentinel = {
             const bounds = this._compareBounds || map.getBounds();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
             const mapSize = map.getSize();
-            const width = Math.min(mapSize.x, 2048);
-            const height = Math.min(mapSize.y, 2048);
+            // Account for device pixel ratio so images are sharp on high-DPI screens
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const width = Math.min(Math.round(mapSize.x * dpr), 2500);
+            const height = Math.min(Math.round(mapSize.y * dpr), 2500);
 
             let evalscript, dataType, dataConfig;
             if (this._compareMode === 's2') {
@@ -753,7 +758,18 @@ FunMap.Sentinel = {
                 body: JSON.stringify(requestBody),
             });
 
-            if (!response.ok) throw new Error(`Compare image failed: ${response.status}`);
+            if (!response.ok) {
+                // On 401/403, force a token refresh and retry once
+                if ((response.status === 401 || response.status === 403) && !this._compareRetried) {
+                    this._compareRetried = true;
+                    FunMap.Settings._cdseToken = null;
+                    FunMap.Settings._cdseTokenExpiry = 0;
+                    return this._loadCompareImage(side);
+                }
+                const errText = await response.text().catch(() => '');
+                throw new Error(`Compare image failed: ${response.status} - ${errText.substring(0, 200)}`);
+            }
+            this._compareRetried = false;
 
             const blob = await response.blob();
 
@@ -915,8 +931,9 @@ FunMap.Sentinel = {
             const bounds = FunMap.Map.getBounds();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
             const mapSize = FunMap.Map.map.getSize();
-            const width = Math.min(mapSize.x, 2048);
-            const height = Math.min(mapSize.y, 2048);
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const width = Math.min(Math.round(mapSize.x * dpr), 2500);
+            const height = Math.min(Math.round(mapSize.y * dpr), 2500);
 
             // Custom evalscript for change detection with the threshold
             const evalscript = `//VERSION=3
