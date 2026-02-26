@@ -505,19 +505,19 @@ FunMap.Sentinel = {
     },
 
     _updateCompareClip() {
-        // Clip the right (after) image at the slider position
-        if (this._compareLayers.right && this._compareLayers.right._image) {
-            const img = this._compareLayers.right._image;
+        // Clip the right image's custom pane at the slider position.
+        // We clip the PANE rather than the image element because Leaflet
+        // positions images with CSS transforms (translate3d + scale during
+        // zoom).  clipPath:inset() operates in pre-transform local coords
+        // while getBoundingClientRect() returns post-transform values,
+        // causing diagonal/offset glitches.  The pane has no transform so
+        // container-relative pixel values map directly.
+        if (!this._compareMap) return;
+        const pane = this._compareMap.getPane('compareRightPane');
+        if (pane) {
             const containerWidth = document.getElementById('compare-container').offsetWidth;
             const sliderPx = this._sliderPos * containerWidth;
-
-            // Get image position relative to map container
-            const mapContainer = document.getElementById('compare-map-single');
-            const mapRect = mapContainer.getBoundingClientRect();
-            const imgRect = img.getBoundingClientRect();
-            const clipLeft = sliderPx - (imgRect.left - mapRect.left);
-
-            img.style.clipPath = `inset(0 0 0 ${clipLeft}px)`;
+            pane.style.clipPath = `inset(0 0 0 ${sliderPx}px)`;
         }
     },
 
@@ -599,7 +599,12 @@ FunMap.Sentinel = {
             if (this._fetchGeneration[fetchKey] !== generation) return [];
 
             const sortedDates = Array.from(dateSet).sort().reverse();
-            FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, sortedDates);
+
+            // Only update calendars if we actually got results — don't wipe
+            // existing dates when the API fails (e.g. token expired mid-request)
+            if (sortedDates.length > 0) {
+                FunMap.Calendar.setAvailableDatesMulti(calendarInputIds, sortedDates);
+            }
 
             if (showToast && sortedDates.length > 0) {
                 FunMap.Utils.toast(`${sortedDates.length} image dates available`, 'info');
@@ -769,29 +774,23 @@ FunMap.Sentinel = {
                 map.removeLayer(this._compareLayers[side]);
             }
 
-            // Both sides use the same locked bounds for identical geographic placement
-            const zIndex = side === 'right' ? 650 : 600;
-            this._compareLayers[side] = L.imageOverlay(imageUrl, bounds, {
-                opacity: 0.9,
-                zIndex: zIndex,
-            });
+            // Put right image in its own custom pane so we can clip it
+            // without affecting the left image (both share overlayPane otherwise)
+            const overlayOpts = { opacity: 0.9 };
+            if (side === 'right') {
+                if (!map.getPane('compareRightPane')) {
+                    const pane = map.createPane('compareRightPane');
+                    pane.style.zIndex = '650';
+                }
+                overlayOpts.pane = 'compareRightPane';
+            }
+            this._compareLayers[side] = L.imageOverlay(imageUrl, bounds, overlayOpts);
             this._compareLayers[side].addTo(map);
 
-            // Ensure right image is above left
-            if (side === 'right' && this._compareLayers[side]._image) {
-                this._compareLayers[side]._image.style.zIndex = '650';
-            }
-            if (side === 'left' && this._compareLayers[side]._image) {
-                this._compareLayers[side]._image.style.zIndex = '600';
-            }
-
-            // Apply clip after image loads
+            // Apply clip after image loads (wait a frame for Leaflet positioning)
             if (side === 'right') {
                 this._compareLayers[side].on('load', () => {
-                    if (this._compareLayers[side]._image) {
-                        this._compareLayers[side]._image.style.zIndex = '650';
-                    }
-                    this._updateCompareClip();
+                    requestAnimationFrame(() => this._updateCompareClip());
                 });
             }
 

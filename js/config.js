@@ -274,6 +274,7 @@ FunMap.Settings = {
     // CDSE token management
     _cdseToken: null,
     _cdseTokenExpiry: 0,
+    _cdseTokenPromise: null, // mutex: reuse in-flight refresh
 
     async getCDSEToken() {
         const now = Date.now();
@@ -281,6 +282,21 @@ FunMap.Settings = {
             return this._cdseToken;
         }
 
+        // If a refresh is already in flight, wait for it instead of firing another
+        if (this._cdseTokenPromise) {
+            return this._cdseTokenPromise;
+        }
+
+        this._cdseTokenPromise = this._refreshCDSEToken();
+        try {
+            const token = await this._cdseTokenPromise;
+            return token;
+        } finally {
+            this._cdseTokenPromise = null;
+        }
+    },
+
+    async _refreshCDSEToken() {
         const clientId = this.getApiKey('cdse_client_id');
         const clientSecret = this.getApiKey('cdse_client_secret');
         if (!clientId || !clientSecret) {
@@ -303,7 +319,7 @@ FunMap.Settings = {
 
         const data = await response.json();
         this._cdseToken = data.access_token;
-        this._cdseTokenExpiry = now + (data.expires_in * 1000);
+        this._cdseTokenExpiry = Date.now() + (data.expires_in * 1000);
         return this._cdseToken;
     },
 };
