@@ -835,9 +835,8 @@ FunMap.Sentinel = {
             const imageUrl = URL.createObjectURL(blob);
             this._compareImageCache[side] = imageUrl;
 
-            if (this._compareLayers[side]) {
-                map.removeLayer(this._compareLayers[side]);
-            }
+            // Keep old layer visible until the new one has loaded
+            const oldLayer = this._compareLayers[side];
 
             // Use a custom pane for the right image so it renders above the left
             const overlayOpts = { opacity: 0.9 };
@@ -848,19 +847,16 @@ FunMap.Sentinel = {
                 }
                 overlayOpts.pane = 'compareRightPane';
             }
-            this._compareLayers[side] = L.imageOverlay(imageUrl, bounds, overlayOpts);
-            this._compareLayers[side].addTo(map);
+            const newLayer = L.imageOverlay(imageUrl, bounds, overlayOpts);
+            newLayer.addTo(map);
 
-            // Apply clip after image loads — wait a frame so Leaflet has
-            // finished positioning the element before we read its rect
-            if (side === 'right') {
-                this._compareLayers[side].on('load', () => {
-                    requestAnimationFrame(() => this._updateCompareClip());
-                });
-            }
-
-            // Hide loading spinner
-            if (loadingEl) loadingEl.classList.add('hidden');
+            // Once the new image has rendered, remove the old one and update clip
+            newLayer.on('load', () => {
+                if (oldLayer) map.removeLayer(oldLayer);
+                if (loadingEl) loadingEl.classList.add('hidden');
+                requestAnimationFrame(() => this._updateCompareClip());
+            });
+            this._compareLayers[side] = newLayer;
             FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
         } catch (err) {
             // Hide loading spinner on error too
