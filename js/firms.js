@@ -21,8 +21,11 @@ FunMap.FIRMS = {
             FunMap.UI.updateLegend();
         });
 
-        // Source/range/color changes
-        ['firms-source', 'firms-range', 'firms-color'].forEach(id => {
+        // Attach calendar to the FIRMS date picker
+        FunMap.Calendar.attach('firms-date');
+
+        // Source/range/date/color changes
+        ['firms-source', 'firms-range', 'firms-date', 'firms-color'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => {
                 if (document.getElementById('layer-firms').checked) {
                     this._loadData();
@@ -56,13 +59,16 @@ FunMap.FIRMS = {
 
         const source = document.getElementById('firms-source').value;
         const range = document.getElementById('firms-range').value;
+        const dateVal = document.getElementById('firms-date').value; // YYYY-MM-DD or empty
         const bounds = FunMap.Map.getBounds();
         const bbox = FunMap.Utils.bboxFromBounds(bounds);
 
         // Use bounding box for the current view
         const area = `${bbox[0].toFixed(2)},${bbox[1].toFixed(2)},${bbox[2].toFixed(2)},${bbox[3].toFixed(2)}`;
 
-        const url = `${FunMap.Config.FIRMS.areaEndpoint}/csv/${firmsKey}/${source}/${area}/${range}`;
+        // Append date for historical queries; omit for latest data
+        let url = `${FunMap.Config.FIRMS.areaEndpoint}/csv/${firmsKey}/${source}/${area}/${range}`;
+        if (dateVal) url += `/${dateVal}`;
 
         FunMap.Utils.setStatus('LOADING FIRE DATA...');
 
