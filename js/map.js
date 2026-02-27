@@ -157,7 +157,7 @@ FunMap.Map = {
     },
 
     getZoom() {
-        return this.map.getZoom();
+        return Math.round(this.map.getZoom());
     },
 
     flyTo(lat, lng, zoom) {
