@@ -4,10 +4,17 @@
 
 FunMap.Sentinel = {
     _s2Layer: null,
+    _s2Url: null,            // ObjectURL for current S2 image (revoked on swap)
+    _s2AbortCtrl: null,      // AbortController for in-flight S2 fetch
+    _s2LoadGen: 0,           // generation counter to discard stale S2 responses
     _s1Layer: null,
+    _s1Url: null,            // ObjectURL for current S1 image (revoked on swap)
+    _s1AbortCtrl: null,      // AbortController for in-flight S1 fetch
+    _s1LoadGen: 0,           // generation counter to discard stale S1 responses
     _compareMode: null,  // null, 's2', 's1'
     _compareMaps: { left: null, right: null },
     _compareLayers: { left: null, right: null },
+    _compareAbortCtrl: { left: null, right: null }, // AbortControllers for compare fetches
     _changeLayer: null,
     _changeMode: false,
     _fetchGeneration: {},  // keyed by calendar group, cancels stale fetches
@@ -123,10 +130,12 @@ FunMap.Sentinel = {
     },
 
     _disableS2() {
+        if (this._s2AbortCtrl) { this._s2AbortCtrl.abort(); this._s2AbortCtrl = null; }
         if (this._s2Layer) {
             FunMap.Map.map.removeLayer(this._s2Layer);
             this._s2Layer = null;
         }
+        if (this._s2Url) { URL.revokeObjectURL(this._s2Url); this._s2Url = null; }
     },
 
     async _refreshS2() {
@@ -134,8 +143,18 @@ FunMap.Sentinel = {
         const minZoom = FunMap.Settings.get('sentinel_zoom', FunMap.Config.Defaults.sentinelMinZoom);
         if (zoom < minZoom) return;
 
+        // Generation counter — discard responses from older requests
+        const gen = ++this._s2LoadGen;
+
+        // Abort any in-flight request so it doesn't waste bandwidth
+        if (this._s2AbortCtrl) this._s2AbortCtrl.abort();
+        const abortCtrl = new AbortController();
+        this._s2AbortCtrl = abortCtrl;
+
         try {
             const token = await FunMap.Settings.getCDSEToken();
+            if (this._s2LoadGen !== gen) return; // superseded
+
             const viz = document.getElementById('s2-visualization').value;
             const cloud = document.getElementById('s2-cloud').value;
             const bounds = FunMap.Map.getBounds();
@@ -146,13 +165,6 @@ FunMap.Sentinel = {
             const evalscript = FunMap.Config.S2Evalscripts[viz];
             if (!evalscript) return;
 
-            // Remove old layer
-            if (this._s2Layer) {
-                FunMap.Map.map.removeLayer(this._s2Layer);
-            }
-
-            // Use the process API to get an image
-            // Account for device pixel ratio so images are sharp on high-DPI screens
             const mapSize = FunMap.Map.map.getSize();
             const dpr = Math.min(window.devicePixelRatio || 1, 2);
             const width = Math.min(Math.round(mapSize.x * dpr), 2500);
@@ -194,6 +206,7 @@ FunMap.Sentinel = {
                     'Accept': 'image/png',
                 },
                 body: JSON.stringify(requestBody),
+                signal: abortCtrl.signal,
             });
 
             if (!response.ok) {
@@ -202,16 +215,33 @@ FunMap.Sentinel = {
             }
 
             const blob = await response.blob();
-            const imageUrl = URL.createObjectURL(blob);
 
-            this._s2Layer = L.imageOverlay(imageUrl, bounds, {
+            // Discard if a newer request has superseded this one
+            if (this._s2LoadGen !== gen) return;
+
+            const imageUrl = URL.createObjectURL(blob);
+            const oldLayer = this._s2Layer;
+            const oldUrl = this._s2Url;
+
+            const newLayer = L.imageOverlay(imageUrl, bounds, {
                 opacity: 0.9,
                 interactive: false,
             });
-            this._s2Layer.addTo(FunMap.Map.map);
+            newLayer.addTo(FunMap.Map.map);
+
+            // Keep old layer visible until new image has rendered
+            newLayer.on('load', () => {
+                if (oldLayer) FunMap.Map.map.removeLayer(oldLayer);
+                if (oldUrl) URL.revokeObjectURL(oldUrl);
+            });
+
+            this._s2Layer = newLayer;
+            this._s2Url = imageUrl;
+            this._s2AbortCtrl = null;
 
             FunMap.Utils.setStatus('SENTINEL-2 LOADED');
         } catch (err) {
+            if (err.name === 'AbortError') return; // intentionally cancelled
             console.error('Sentinel-2 error:', err);
             if (err.message.includes('credentials not configured')) {
                 FunMap.Utils.toast('Configure CDSE API keys in Settings to load Sentinel-2 data', 'warning');
@@ -236,10 +266,12 @@ FunMap.Sentinel = {
     },
 
     _disableS1() {
+        if (this._s1AbortCtrl) { this._s1AbortCtrl.abort(); this._s1AbortCtrl = null; }
         if (this._s1Layer) {
             FunMap.Map.map.removeLayer(this._s1Layer);
             this._s1Layer = null;
         }
+        if (this._s1Url) { URL.revokeObjectURL(this._s1Url); this._s1Url = null; }
     },
 
     async _refreshS1() {
@@ -247,8 +279,18 @@ FunMap.Sentinel = {
         const minZoom = FunMap.Settings.get('sentinel_zoom', FunMap.Config.Defaults.sentinelMinZoom);
         if (zoom < minZoom) return;
 
+        // Generation counter — discard responses from older requests
+        const gen = ++this._s1LoadGen;
+
+        // Abort any in-flight request so it doesn't waste bandwidth
+        if (this._s1AbortCtrl) this._s1AbortCtrl.abort();
+        const abortCtrl = new AbortController();
+        this._s1AbortCtrl = abortCtrl;
+
         try {
             const token = await FunMap.Settings.getCDSEToken();
+            if (this._s1LoadGen !== gen) return; // superseded
+
             const pol = document.getElementById('s1-polarization').value;
             const bounds = FunMap.Map.getBounds();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
@@ -257,10 +299,6 @@ FunMap.Sentinel = {
 
             const evalscript = FunMap.Config.S1Evalscripts[pol];
             if (!evalscript) return;
-
-            if (this._s1Layer) {
-                FunMap.Map.map.removeLayer(this._s1Layer);
-            }
 
             const mapSize = FunMap.Map.map.getSize();
             const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -306,6 +344,7 @@ FunMap.Sentinel = {
                     'Accept': 'image/png',
                 },
                 body: JSON.stringify(requestBody),
+                signal: abortCtrl.signal,
             });
 
             if (!response.ok) {
@@ -314,16 +353,33 @@ FunMap.Sentinel = {
             }
 
             const blob = await response.blob();
-            const imageUrl = URL.createObjectURL(blob);
 
-            this._s1Layer = L.imageOverlay(imageUrl, bounds, {
+            // Discard if a newer request has superseded this one
+            if (this._s1LoadGen !== gen) return;
+
+            const imageUrl = URL.createObjectURL(blob);
+            const oldLayer = this._s1Layer;
+            const oldUrl = this._s1Url;
+
+            const newLayer = L.imageOverlay(imageUrl, bounds, {
                 opacity: 0.9,
                 interactive: false,
             });
-            this._s1Layer.addTo(FunMap.Map.map);
+            newLayer.addTo(FunMap.Map.map);
+
+            // Keep old layer visible until new image has rendered
+            newLayer.on('load', () => {
+                if (oldLayer) FunMap.Map.map.removeLayer(oldLayer);
+                if (oldUrl) URL.revokeObjectURL(oldUrl);
+            });
+
+            this._s1Layer = newLayer;
+            this._s1Url = imageUrl;
+            this._s1AbortCtrl = null;
 
             FunMap.Utils.setStatus('SENTINEL-1 LOADED');
         } catch (err) {
+            if (err.name === 'AbortError') return; // intentionally cancelled
             console.error('Sentinel-1 error:', err);
             if (err.message.includes('credentials not configured')) {
                 FunMap.Utils.toast('Configure CDSE API keys in Settings to load Sentinel-1 data', 'warning');
@@ -448,7 +504,7 @@ FunMap.Sentinel = {
                 this._compareBounds = this._compareMap.getBounds();
                 this._loadCompareImage('left');
                 this._loadCompareImage('right');
-            }, 400);
+            }, 300);
         });
 
         // Lock bounds and load both images with same geographic extent
@@ -720,6 +776,11 @@ FunMap.Sentinel = {
         // Generation counter prevents stale responses from overwriting newer ones
         const gen = ++this._compareLoadGen[side];
 
+        // Abort any in-flight request for this side
+        if (this._compareAbortCtrl[side]) this._compareAbortCtrl[side].abort();
+        const abortCtrl = new AbortController();
+        this._compareAbortCtrl[side] = abortCtrl;
+
         try {
             const token = await FunMap.Settings.getCDSEToken();
             if (this._compareLoadGen[side] !== gen) return; // superseded
@@ -805,6 +866,7 @@ FunMap.Sentinel = {
                     'Accept': 'image/png',
                 },
                 body: JSON.stringify(requestBody),
+                signal: abortCtrl.signal,
             });
 
             if (!response.ok) {
@@ -822,11 +884,8 @@ FunMap.Sentinel = {
 
             const blob = await response.blob();
 
-            // Abort if a newer request has superseded this one
-            if (this._compareLoadGen[side] !== gen) {
-                URL.revokeObjectURL(URL.createObjectURL(blob));
-                return;
-            }
+            // Discard if a newer request has superseded this one
+            if (this._compareLoadGen[side] !== gen) return;
 
             // Revoke old cached URL
             if (this._compareImageCache[side]) {
@@ -859,6 +918,7 @@ FunMap.Sentinel = {
             this._compareLayers[side] = newLayer;
             FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
         } catch (err) {
+            if (err.name === 'AbortError') return; // intentionally cancelled
             // Hide loading spinner on error too
             const loadEl = document.getElementById(`compare-loading-${side}`);
             if (loadEl) loadEl.classList.add('hidden');
@@ -883,9 +943,11 @@ FunMap.Sentinel = {
             this._sliderHandlers = null;
         }
 
-        // Clear auto-reload timer
+        // Clear auto-reload timer and abort in-flight image requests
         clearTimeout(this._compareMoveTimer);
         this._compareMoveTimer = null;
+        if (this._compareAbortCtrl.left) { this._compareAbortCtrl.left.abort(); this._compareAbortCtrl.left = null; }
+        if (this._compareAbortCtrl.right) { this._compareAbortCtrl.right.abort(); this._compareAbortCtrl.right = null; }
 
         // Destroy compare map
         if (this._compareMap) {
