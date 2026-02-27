@@ -440,6 +440,17 @@ FunMap.Sentinel = {
                 FunMap.Utils.formatCoords(e.latlng.lat, e.latlng.lng);
         }, 50));
 
+        // Auto-reload both images on pan/zoom (debounced to avoid API spam)
+        this._compareMoveTimer = null;
+        this._compareMap.on('moveend', () => {
+            clearTimeout(this._compareMoveTimer);
+            this._compareMoveTimer = setTimeout(() => {
+                this._compareBounds = this._compareMap.getBounds();
+                this._loadCompareImage('left');
+                this._loadCompareImage('right');
+            }, 400);
+        });
+
         // Lock bounds and load both images with same geographic extent
         this._compareBounds = this._compareMap.getBounds();
         this._loadCompareImage('left');
@@ -875,6 +886,10 @@ FunMap.Sentinel = {
             document.removeEventListener('touchend', this._sliderHandlers.touchEnd);
             this._sliderHandlers = null;
         }
+
+        // Clear auto-reload timer
+        clearTimeout(this._compareMoveTimer);
+        this._compareMoveTimer = null;
 
         // Destroy compare map
         if (this._compareMap) {
