@@ -74,22 +74,10 @@ FunMap.FIRMS = {
             const csv = await response.text();
             this._data = FunMap.Utils.parseCSV(csv);
 
-            // Apply date filter if set
-            const dates = FunMap.UI.getDateRange();
-            let filtered = this._data;
-            if (dates.from || dates.to) {
-                filtered = this._data.filter(d => {
-                    const date = d.acq_date;
-                    if (dates.from && date < dates.from) return false;
-                    if (dates.to && date > dates.to) return false;
-                    return true;
-                });
-            }
+            this._renderData(this._data);
+            FunMap.Utils.setStatus(`${this._data.length} FIRE DETECTIONS LOADED`);
 
-            this._renderData(filtered);
-            FunMap.Utils.setStatus(`${filtered.length} FIRE DETECTIONS LOADED`);
-
-            if (filtered.length === 0) {
+            if (this._data.length === 0) {
                 FunMap.Utils.toast('No fire detections found in this area/timeframe', 'info');
             }
 
@@ -174,24 +162,6 @@ FunMap.FIRMS = {
         if (data.length > maxPoints) {
             FunMap.Utils.toast(`Showing ${maxPoints} of ${data.length} fire points. Zoom in for more detail.`, 'info');
         }
-    },
-
-    // Called when date filter changes
-    applyFilter() {
-        if (!document.getElementById('layer-firms').checked) return;
-        if (this._data.length === 0) return;
-
-        const dates = FunMap.UI.getDateRange();
-        let filtered = this._data;
-        if (dates.from || dates.to) {
-            filtered = this._data.filter(d => {
-                const date = d.acq_date;
-                if (dates.from && date < dates.from) return false;
-                if (dates.to && date > dates.to) return false;
-                return true;
-            });
-        }
-        this._renderData(filtered);
     },
 
     reload() {

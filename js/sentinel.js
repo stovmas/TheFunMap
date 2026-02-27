@@ -119,7 +119,7 @@ FunMap.Sentinel = {
             return;
         }
         this._refreshS2();
-        this.refreshGlobalAvailableDates();
+        this.refreshS2AvailableDates();
     },
 
     _disableS2() {
@@ -140,7 +140,8 @@ FunMap.Sentinel = {
             const cloud = document.getElementById('s2-cloud').value;
             const bounds = FunMap.Map.getBounds();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
-            const dates = FunMap.UI.getDateRange();
+            const dateVal = document.getElementById('s2-date').value;
+            if (!dateVal) return;
 
             const evalscript = FunMap.Config.S2Evalscripts[viz];
             if (!evalscript) return;
@@ -167,8 +168,8 @@ FunMap.Sentinel = {
                         type: 'sentinel-2-l2a',
                         dataFilter: {
                             timeRange: {
-                                from: dates.from + 'T00:00:00Z',
-                                to: dates.to + 'T23:59:59Z',
+                                from: dateVal + 'T00:00:00Z',
+                                to: dateVal + 'T23:59:59Z',
                             },
                             maxCloudCoverage: parseInt(cloud),
                             mosaickingOrder: 'mostRecent',
@@ -231,7 +232,7 @@ FunMap.Sentinel = {
             return;
         }
         this._refreshS1();
-        this.refreshGlobalAvailableDates();
+        this.refreshS1AvailableDates();
     },
 
     _disableS1() {
@@ -251,7 +252,8 @@ FunMap.Sentinel = {
             const pol = document.getElementById('s1-polarization').value;
             const bounds = FunMap.Map.getBounds();
             const bbox = FunMap.Utils.bboxFromBounds(bounds);
-            const dates = FunMap.UI.getDateRange();
+            const dateVal = document.getElementById('s1-date').value;
+            if (!dateVal) return;
 
             const evalscript = FunMap.Config.S1Evalscripts[pol];
             if (!evalscript) return;
@@ -275,8 +277,8 @@ FunMap.Sentinel = {
                         type: 'sentinel-1-grd',
                         dataFilter: {
                             timeRange: {
-                                from: dates.from + 'T00:00:00Z',
-                                to: dates.to + 'T23:59:59Z',
+                                from: dateVal + 'T00:00:00Z',
+                                to: dateVal + 'T23:59:59Z',
                             },
                             mosaickingOrder: 'mostRecent',
                         },
@@ -397,10 +399,11 @@ FunMap.Sentinel = {
         FunMap.Calendar.attach('compare-date-left', compareCalOpts);
         FunMap.Calendar.attach('compare-date-right', compareCalOpts);
 
-        // Set default dates
-        const dates = FunMap.UI.getDateRange();
+        // Set default dates — use the layer's own date picker as the AFTER date
+        const layerDate = document.getElementById(sensor === 's2' ? 's2-date' : 's1-date').value
+            || FunMap.Utils.toISODate(new Date());
         FunMap.Calendar.setValue('compare-date-left', FunMap.Utils.daysAgo(30));
-        FunMap.Calendar.setValue('compare-date-right', dates.to);
+        FunMap.Calendar.setValue('compare-date-right', layerDate);
 
         // Hide main map, show compare
         mainMap.style.display = 'none';
@@ -652,19 +655,20 @@ FunMap.Sentinel = {
             ['compare-date-left', 'compare-date-right'], true);
     },
 
-    // Fetch available dates for global date filter pickers
-    // No zoom restriction — dates exist regardless of current zoom level
-    async refreshGlobalAvailableDates() {
+    // Fetch available dates for the Sentinel-2 date picker
+    async refreshS2AvailableDates() {
         const clientId = FunMap.Settings.getApiKey('cdse_client_id');
         if (!clientId) return;
-
         const bounds = FunMap.Map.getBounds();
-        const s2Active = document.getElementById('layer-sentinel2').checked;
-        const s1Active = document.getElementById('layer-sentinel1').checked;
-        const collectionId = s2Active ? 'sentinel-2-l2a' : (s1Active ? 'sentinel-1-grd' : 'sentinel-2-l2a');
+        await this.fetchAvailableDatesFor('sentinel-2-l2a', bounds, ['s2-date'], false);
+    },
 
-        await this.fetchAvailableDatesFor(collectionId, bounds,
-            ['global-date-from', 'global-date-to'], false);
+    // Fetch available dates for the Sentinel-1 date picker
+    async refreshS1AvailableDates() {
+        const clientId = FunMap.Settings.getApiKey('cdse_client_id');
+        if (!clientId) return;
+        const bounds = FunMap.Map.getBounds();
+        await this.fetchAvailableDatesFor('sentinel-1-grd', bounds, ['s1-date'], false);
     },
 
     // Fetch available dates for change detection

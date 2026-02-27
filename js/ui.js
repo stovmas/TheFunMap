@@ -77,64 +77,48 @@ FunMap.UI = {
         FunMap.Map.updateLayerCount();
     },
 
-    // ---- Date Filter ----
+    // ---- Per-dataset Date Pickers ----
 
     _initDateFilter() {
-        // Attach custom calendars to global date inputs
-        // onOpen fetches available satellite dates whenever the calendar is opened
-        const globalCalOpts = {
-            onOpen: () => FunMap.Sentinel.refreshGlobalAvailableDates(),
-        };
-        FunMap.Calendar.attach('global-date-from', globalCalOpts);
-        FunMap.Calendar.attach('global-date-to', globalCalOpts);
-
-        // Set defaults
         const today = FunMap.Utils.toISODate(new Date());
-        const thirtyDaysAgo = FunMap.Utils.daysAgo(30);
-        FunMap.Calendar.setValue('global-date-from', thirtyDaysAgo);
-        FunMap.Calendar.setValue('global-date-to', today);
 
-        document.getElementById('apply-date-filter').addEventListener('click', () => {
-            this._applyDateFilter();
+        // Sentinel-2 date picker — defaults to today, refreshes on change
+        FunMap.Calendar.attach('s2-date', {
+            onOpen: () => FunMap.Sentinel.refreshS2AvailableDates(),
+        });
+        FunMap.Calendar.setValue('s2-date', today);
+        document.getElementById('s2-date').addEventListener('change', () => {
+            if (document.getElementById('layer-sentinel2').checked) {
+                FunMap.Sentinel._refreshS2();
+            }
         });
 
-        document.getElementById('reset-date-filter').addEventListener('click', () => {
-            FunMap.Calendar.setValue('global-date-from', FunMap.Utils.daysAgo(30));
-            FunMap.Calendar.setValue('global-date-to', FunMap.Utils.toISODate(new Date()));
-            this._applyDateFilter();
+        // Sentinel-1 date picker — defaults to today, refreshes on change
+        FunMap.Calendar.attach('s1-date', {
+            onOpen: () => FunMap.Sentinel.refreshS1AvailableDates(),
+        });
+        FunMap.Calendar.setValue('s1-date', today);
+        document.getElementById('s1-date').addEventListener('change', () => {
+            if (document.getElementById('layer-sentinel1').checked) {
+                FunMap.Sentinel._refreshS1();
+            }
         });
 
-        // Pre-fetch available dates so calendars have green highlights on first open
-        setTimeout(() => FunMap.Sentinel.refreshGlobalAvailableDates(), 1500);
-    },
-
-    _applyDateFilter() {
-        FunMap.Utils.setStatus('APPLYING DATE FILTER...');
-
-        // Refresh active layers
-        FunMap.FIRMS.applyFilter();
-        FunMap.Conflict.applyFilter();
-
-        // Sentinel layers need full refresh
-        if (document.getElementById('layer-sentinel2').checked) {
-            FunMap.Sentinel._refreshS2();
-        }
-        if (document.getElementById('layer-sentinel1').checked) {
-            FunMap.Sentinel._refreshS1();
-        }
-
-        // Refresh available dates for the date pickers
-        FunMap.Sentinel.refreshGlobalAvailableDates();
-
-        FunMap.Utils.setStatus('FILTER APPLIED');
-        FunMap.Utils.toast('Date filter applied', 'success');
-    },
-
-    getDateRange() {
-        return {
-            from: document.getElementById('global-date-from').value,
-            to: document.getElementById('global-date-to').value,
-        };
+        // Conflict date pickers — FROM/TO range, defaults to last 30 days
+        FunMap.Calendar.attach('conflict-date-from');
+        FunMap.Calendar.attach('conflict-date-to');
+        FunMap.Calendar.setValue('conflict-date-from', FunMap.Utils.daysAgo(30));
+        FunMap.Calendar.setValue('conflict-date-to', today);
+        document.getElementById('conflict-date-from').addEventListener('change', () => {
+            if (document.getElementById('layer-conflict').checked) {
+                FunMap.Conflict.reload();
+            }
+        });
+        document.getElementById('conflict-date-to').addEventListener('change', () => {
+            if (document.getElementById('layer-conflict').checked) {
+                FunMap.Conflict.reload();
+            }
+        });
     },
 
     // ---- Geocode ----

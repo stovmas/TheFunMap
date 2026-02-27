@@ -76,10 +76,17 @@ FunMap.Conflict = {
         this._loading = false;
     },
 
+    _getConflictDateRange() {
+        return {
+            from: document.getElementById('conflict-date-from').value,
+            to: document.getElementById('conflict-date-to').value,
+        };
+    },
+
     async _loadUCDP() {
         FunMap.Utils.setStatus('LOADING UCDP DATA...');
 
-        const dates = FunMap.UI.getDateRange();
+        const dates = this._getConflictDateRange();
         const bounds = FunMap.Map.getBounds();
         let allResults = [];
         let page = 0;
@@ -164,7 +171,7 @@ FunMap.Conflict = {
 
         FunMap.Utils.setStatus('LOADING ACLED DATA...');
 
-        const dates = FunMap.UI.getDateRange();
+        const dates = this._getConflictDateRange();
         const bounds = FunMap.Map.getBounds();
 
         let url = `${FunMap.Config.ACLED.endpoint}?key=${encodeURIComponent(acledKey)}&email=${encodeURIComponent(acledEmail)}&_format=json&limit=5000`;
@@ -228,7 +235,7 @@ FunMap.Conflict = {
         const typeSelect = document.getElementById('conflict-type');
         const selectedTypes = Array.from(typeSelect.selectedOptions).map(o => o.value);
         const minFatal = parseInt(document.getElementById('conflict-min-fatal').value) || 0;
-        const dates = FunMap.UI.getDateRange();
+        const dates = this._getConflictDateRange();
 
         return data.filter(event => {
             // Date filter
@@ -310,13 +317,6 @@ FunMap.Conflict = {
         if (data.length > maxPoints) {
             FunMap.Utils.toast(`Showing ${maxPoints} of ${data.length} conflict events. Apply filters to narrow results.`, 'info');
         }
-    },
-
-    applyFilter() {
-        if (!document.getElementById('layer-conflict').checked) return;
-        if (this._data.length === 0) return;
-        const filtered = this._filterData();
-        this._renderData(filtered);
     },
 
     reload() {

@@ -45,14 +45,6 @@
                 </div>
             </div>
             <div class="top-bar-center">
-                <div class="date-filter-bar">
-                    <label>FROM</label>
-                    <input type="text" id="global-date-from" class="xbox-input" readonly placeholder="YYYY-MM-DD">
-                    <label>TO</label>
-                    <input type="text" id="global-date-to" class="xbox-input" readonly placeholder="YYYY-MM-DD">
-                    <button id="apply-date-filter" class="xbox-btn sm">APPLY</button>
-                    <button id="reset-date-filter" class="xbox-btn sm ghost">RESET</button>
-                </div>
             </div>
             <div class="top-bar-right">
                 <button id="btn-geocode" class="xbox-btn icon-btn" title="Search Location">
@@ -132,6 +124,10 @@
                                     </select>
                                 </div>
                                 <div class="option-row">
+                                    <label>Image Date</label>
+                                    <input type="text" id="s2-date" class="xbox-input sm" readonly placeholder="YYYY-MM-DD">
+                                </div>
+                                <div class="option-row">
                                     <label>Max Cloud Cover</label>
                                     <input type="range" id="s2-cloud" min="0" max="100" value="30" class="xbox-range">
                                     <span id="s2-cloud-val" class="range-val">30%</span>
@@ -163,6 +159,10 @@
                                         <option value="VH">VH</option>
                                         <option value="VV_VH">VV/VH Ratio</option>
                                     </select>
+                                </div>
+                                <div class="option-row">
+                                    <label>Image Date</label>
+                                    <input type="text" id="s1-date" class="xbox-input sm" readonly placeholder="YYYY-MM-DD">
                                 </div>
                                 <button id="btn-s1-compare" class="xbox-btn sm full-width">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -249,6 +249,14 @@
                                 <div class="option-row">
                                     <label>Min Fatalities</label>
                                     <input type="number" id="conflict-min-fatal" class="xbox-input sm" value="0" min="0">
+                                </div>
+                                <div class="option-row">
+                                    <label>From</label>
+                                    <input type="text" id="conflict-date-from" class="xbox-input sm" readonly placeholder="YYYY-MM-DD">
+                                </div>
+                                <div class="option-row">
+                                    <label>To</label>
+                                    <input type="text" id="conflict-date-to" class="xbox-input sm" readonly placeholder="YYYY-MM-DD">
                                 </div>
                             </div>
                         </div>
