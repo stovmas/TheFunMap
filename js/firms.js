@@ -5,7 +5,7 @@
 FunMap.FIRMS = {
     _layerGroup: null,
     _data: [],
-    _loading: false,
+    _abortCtrl: null,
 
     init() {
         this._layerGroup = L.layerGroup();
@@ -43,13 +43,14 @@ FunMap.FIRMS = {
     },
 
     async _loadData() {
-        if (this._loading) return;
-        this._loading = true;
+        // Cancel any in-flight request so the new one takes priority
+        if (this._abortCtrl) this._abortCtrl.abort();
+        const abortCtrl = new AbortController();
+        this._abortCtrl = abortCtrl;
 
         const firmsKey = FunMap.Settings.getApiKey('firms_key');
         if (!firmsKey) {
             FunMap.Utils.toast('Configure NASA FIRMS MAP Key in Settings to load fire data', 'warning');
-            this._loading = false;
             return;
         }
 
@@ -66,13 +67,26 @@ FunMap.FIRMS = {
         FunMap.Utils.setStatus('LOADING FIRE DATA...');
 
         try {
-            const response = await fetch(url);
+            const response = await fetch(url, { signal: abortCtrl.signal });
             if (!response.ok) {
                 throw new Error(`FIRMS API error: ${response.status}`);
             }
 
             const csv = await response.text();
+
+            // FIRMS API returns error messages as plain text with 200 status.
+            // Detect these before trying to parse as CSV.
+            if (!csv.includes(',') || csv.length < 40) {
+                throw new Error(csv.trim() || 'Empty response from FIRMS API');
+            }
+
             this._data = FunMap.Utils.parseCSV(csv);
+
+            // If headers were present but every row was skipped, the format may have changed
+            if (this._data.length === 0 && csv.trim().split('\n').length > 1) {
+                console.warn('FIRMS: CSV had rows but none parsed. First 500 chars:', csv.substring(0, 500));
+                FunMap.Utils.toast('FIRMS data received but could not be parsed — check console for details', 'warning');
+            }
 
             this._renderData(this._data);
             FunMap.Utils.setStatus(`${this._data.length} FIRE DETECTIONS LOADED`);
@@ -82,12 +96,11 @@ FunMap.FIRMS = {
             }
 
         } catch (err) {
+            if (err.name === 'AbortError') return;
             console.error('FIRMS error:', err);
             FunMap.Utils.toast('FIRMS: ' + err.message, 'error');
             FunMap.Utils.setStatus('FIRMS ERROR');
         }
-
-        this._loading = false;
     },
 
     _renderData(data) {
