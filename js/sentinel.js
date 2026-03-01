@@ -69,6 +69,11 @@ FunMap.Sentinel = {
             }
         });
 
+        // S2 spatial smoothing toggle
+        document.getElementById('s2-smooth').addEventListener('change', () => {
+            this._applySmoothing();
+        });
+
         // S1 polarization change
         document.getElementById('s1-polarization').addEventListener('change', () => {
             if (document.getElementById('layer-sentinel1').checked) {
@@ -232,6 +237,7 @@ FunMap.Sentinel = {
                 interactive: false,
             });
             newLayer.addTo(FunMap.Map.map);
+            this._applySmoothToLayer(newLayer);
 
             // Keep old layer visible until new image has rendered
             newLayer.on('load', () => {
@@ -243,7 +249,7 @@ FunMap.Sentinel = {
             this._s2Url = imageUrl;
             this._s2AbortCtrl = null;
 
-            FunMap.Utils.setStatus('SENTINEL-2 LOADED');
+            FunMap.Utils.setStatus(`SENTINEL-2 LOADED | ${dateVal}`);
         } catch (err) {
             if (err.name === 'AbortError') return; // intentionally cancelled
             console.error('Sentinel-2 error:', err);
@@ -381,7 +387,7 @@ FunMap.Sentinel = {
             this._s1Url = imageUrl;
             this._s1AbortCtrl = null;
 
-            FunMap.Utils.setStatus('SENTINEL-1 LOADED');
+            FunMap.Utils.setStatus(`SENTINEL-1 LOADED | ${dateVal}`);
         } catch (err) {
             if (err.name === 'AbortError') return; // intentionally cancelled
             console.error('Sentinel-1 error:', err);
@@ -926,6 +932,7 @@ FunMap.Sentinel = {
             }
             const newLayer = L.imageOverlay(imageUrl, bounds, overlayOpts);
             newLayer.addTo(map);
+            if (this._compareMode === 's2') this._applySmoothToLayer(newLayer);
 
             // Once the new image has rendered, remove the old one and update clip
             newLayer.on('load', () => {
@@ -934,7 +941,9 @@ FunMap.Sentinel = {
                 requestAnimationFrame(() => this._updateCompareClip());
             });
             this._compareLayers[side] = newLayer;
-            FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
+            const dl = document.getElementById('compare-date-left').value || '?';
+            const dr = document.getElementById('compare-date-right').value || '?';
+            FunMap.Utils.setStatus(`COMPARE | ${dl} vs ${dr}`);
         } catch (err) {
             if (err.name === 'AbortError') return; // intentionally cancelled
             // Hide loading spinner on error too
@@ -1222,7 +1231,7 @@ function evaluatePixel(samples) {
             this._setCVAVisible(true);
 
             if (loadingEl) loadingEl.classList.add('hidden');
-            FunMap.Utils.setStatus('CVA OVERLAY ACTIVE');
+            FunMap.Utils.setStatus(`CVA OVERLAY | ${dateLeft} vs ${dateRight}`);
             FunMap.Utils.toast('Change Vector Analysis complete — use TOGGLE CVA to compare', 'success');
 
         } catch (err) {
@@ -1238,16 +1247,19 @@ function evaluatePixel(samples) {
     _toggleCVA() {
         if (!this._cvaLayer || !this._compareMap) return;
 
+        const dl = document.getElementById('compare-date-left').value || '?';
+        const dr = document.getElementById('compare-date-right').value || '?';
+
         if (this._cvaActive) {
             // Hide CVA, show compare view
             this._setCVAVisible(false);
             this._cvaActive = false;
-            FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
+            FunMap.Utils.setStatus(`COMPARE | ${dl} vs ${dr}`);
         } else {
             // Show CVA, hide compare slider
             this._setCVAVisible(true);
             this._cvaActive = true;
-            FunMap.Utils.setStatus('CVA OVERLAY ACTIVE');
+            FunMap.Utils.setStatus(`CVA OVERLAY | ${dl} vs ${dr}`);
         }
     },
 
@@ -1322,13 +1334,81 @@ function evaluatePixel(samples) {
         }
         const dateLeft = document.getElementById('compare-date-left').value || 'before';
         const dateRight = document.getElementById('compare-date-right').value || 'after';
-        const a = document.createElement('a');
-        a.href = this._cvaUrl;
-        a.download = `CVA_${dateLeft}_to_${dateRight}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        FunMap.Utils.toast('CVA image downloaded', 'success');
+        const filename = `CVA_${dateLeft}_to_${dateRight}.png`;
+
+        // Composite CVA over satellite (after) image
+        const satUrl = this._compareImageCache.right;
+        if (!satUrl) {
+            // No satellite base — download CVA alone
+            const a = document.createElement('a');
+            a.href = this._cvaUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            FunMap.Utils.toast('CVA image downloaded', 'success');
+            return;
+        }
+
+        const satImg = new Image();
+        const cvaImg = new Image();
+        let loaded = 0;
+
+        const onBothLoaded = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = satImg.naturalWidth;
+            canvas.height = satImg.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            // Draw satellite base
+            ctx.drawImage(satImg, 0, 0, canvas.width, canvas.height);
+            // Draw CVA overlay on top
+            ctx.drawImage(cvaImg, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                FunMap.Utils.toast('CVA composite image downloaded', 'success');
+            }, 'image/png');
+        };
+
+        const tryComplete = () => { if (++loaded === 2) onBothLoaded(); };
+        satImg.onload = tryComplete;
+        cvaImg.onload = tryComplete;
+        satImg.onerror = () => {
+            // Fallback: download CVA only
+            const a = document.createElement('a');
+            a.href = this._cvaUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            FunMap.Utils.toast('CVA image downloaded (without satellite base)', 'success');
+        };
+        cvaImg.onerror = satImg.onerror;
+
+        satImg.src = satUrl;
+        cvaImg.src = this._cvaUrl;
+    },
+
+    _applySmoothToLayer(layer) {
+        if (!layer || !layer._image) return;
+        const smooth = document.getElementById('s2-smooth').checked;
+        layer._image.style.imageRendering = smooth ? 'auto' : '';
+        layer._image.style.filter = smooth ? 'blur(1px)' : '';
+    },
+
+    _applySmoothing() {
+        this._applySmoothToLayer(this._s2Layer);
+        if (this._compareMode === 's2') {
+            this._applySmoothToLayer(this._compareLayers.left);
+            this._applySmoothToLayer(this._compareLayers.right);
+        }
     },
 
     _closeCompare() {
