@@ -531,11 +531,10 @@ FunMap.Sentinel = {
                 FunMap.Utils.toast('Compare images updating...', 'info');
             },
             cva: () => {
-                if (this._cvaActive) {
-                    this._removeCVA();
-                } else {
-                    this._runCVA();
-                }
+                this._runCVA();
+            },
+            toggleCva: () => {
+                this._toggleCVA();
             },
             downloadCva: () => {
                 this._downloadCVA();
@@ -543,6 +542,7 @@ FunMap.Sentinel = {
         };
         document.getElementById('btn-apply-compare').addEventListener('click', this._compareHandlers.apply);
         document.getElementById('btn-cva-compare').addEventListener('click', this._compareHandlers.cva);
+        document.getElementById('btn-toggle-cva').addEventListener('click', this._compareHandlers.toggleCva);
         document.getElementById('btn-download-cva').addEventListener('click', this._compareHandlers.downloadCva);
 
         FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
@@ -1210,14 +1210,20 @@ function evaluatePixel(samples) {
             this._cvaLayer.addTo(map);
             this._cvaActive = true;
 
-            // Show legend and download button, highlight CVA button
+            // Show legend, download button, toggle button; highlight CVA button
             document.getElementById('cva-legend').classList.remove('hidden');
             document.getElementById('btn-download-cva').classList.remove('hidden');
             document.getElementById('btn-cva-compare').classList.add('accent');
+            const toggleBtn = document.getElementById('btn-toggle-cva');
+            toggleBtn.classList.remove('hidden');
+            toggleBtn.classList.add('cva-on');
+
+            // Hide compare slider & labels while CVA is shown
+            this._setCVAVisible(true);
 
             if (loadingEl) loadingEl.classList.add('hidden');
             FunMap.Utils.setStatus('CVA OVERLAY ACTIVE');
-            FunMap.Utils.toast('Change Vector Analysis complete', 'success');
+            FunMap.Utils.toast('Change Vector Analysis complete — use TOGGLE CVA to compare', 'success');
 
         } catch (err) {
             if (err.name === 'AbortError') return;
@@ -1228,6 +1234,61 @@ function evaluatePixel(samples) {
         }
     },
 
+    // Toggle CVA overlay visibility on/off without destroying it
+    _toggleCVA() {
+        if (!this._cvaLayer || !this._compareMap) return;
+
+        if (this._cvaActive) {
+            // Hide CVA, show compare view
+            this._setCVAVisible(false);
+            this._cvaActive = false;
+            FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
+        } else {
+            // Show CVA, hide compare slider
+            this._setCVAVisible(true);
+            this._cvaActive = true;
+            FunMap.Utils.setStatus('CVA OVERLAY ACTIVE');
+        }
+    },
+
+    // Show or hide CVA overlay and associated UI elements
+    _setCVAVisible(visible) {
+        // CVA layer
+        if (this._cvaLayer) {
+            if (visible) {
+                if (!this._compareMap.hasLayer(this._cvaLayer)) {
+                    this._cvaLayer.addTo(this._compareMap);
+                }
+            } else {
+                if (this._compareMap.hasLayer(this._cvaLayer)) {
+                    this._compareMap.removeLayer(this._cvaLayer);
+                }
+            }
+        }
+
+        // Legend
+        const legend = document.getElementById('cva-legend');
+        if (legend) legend.classList.toggle('hidden', !visible);
+
+        // Toggle button state
+        const toggleBtn = document.getElementById('btn-toggle-cva');
+        if (toggleBtn) toggleBtn.classList.toggle('cva-on', visible);
+
+        // Compare slider & labels — hide when CVA is visible, show when not
+        const slider = document.getElementById('compare-slider');
+        if (slider) slider.style.display = visible ? 'none' : '';
+        const labelLeft = document.querySelector('.compare-label-left');
+        if (labelLeft) labelLeft.style.display = visible ? 'none' : '';
+        const labelRight = document.querySelector('.compare-label-right');
+        if (labelRight) labelRight.style.display = visible ? 'none' : '';
+
+        // Reset clip on right image when returning to compare view
+        if (!visible) {
+            requestAnimationFrame(() => this._updateCompareClip());
+        }
+    },
+
+    // Fully destroy CVA state (used on close or when APPLY changes images)
     _removeCVA() {
         if (this._cvaAbortCtrl) { this._cvaAbortCtrl.abort(); this._cvaAbortCtrl = null; }
         if (this._cvaLayer && this._compareMap && this._compareMap.hasLayer(this._cvaLayer)) {
@@ -1243,8 +1304,13 @@ function evaluatePixel(samples) {
         if (dlBtn) dlBtn.classList.add('hidden');
         const cvaBtn = document.getElementById('btn-cva-compare');
         if (cvaBtn) cvaBtn.classList.remove('accent');
+        const toggleBtn = document.getElementById('btn-toggle-cva');
+        if (toggleBtn) { toggleBtn.classList.add('hidden'); toggleBtn.classList.remove('cva-on'); }
         const loadingEl = document.getElementById('cva-loading');
         if (loadingEl) loadingEl.classList.add('hidden');
+
+        // Restore compare slider & labels
+        this._setCVAVisible(false);
 
         if (this._compareMode) FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
     },
@@ -1270,6 +1336,7 @@ function evaluatePixel(samples) {
         if (this._compareHandlers) {
             document.getElementById('btn-apply-compare').removeEventListener('click', this._compareHandlers.apply);
             document.getElementById('btn-cva-compare').removeEventListener('click', this._compareHandlers.cva);
+            document.getElementById('btn-toggle-cva').removeEventListener('click', this._compareHandlers.toggleCva);
             document.getElementById('btn-download-cva').removeEventListener('click', this._compareHandlers.downloadCva);
             this._compareHandlers = null;
         }

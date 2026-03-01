@@ -793,6 +793,21 @@ textarea.xbox-input {
     color: var(--xbox-green);
 }
 
+/* CVA Toggle Button (top-right of compare viewport) */
+.cva-toggle-btn {
+    position: absolute;
+    top: 56px;
+    right: 12px;
+    z-index: 530;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+.cva-toggle-btn.cva-on {
+    background: var(--xbox-green);
+    color: #000;
+    border-color: var(--xbox-green);
+}
+
 /* CVA Legend */
 .cva-legend {
     position: absolute;
