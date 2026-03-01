@@ -172,7 +172,7 @@ function setup() {
     return {
         input: [{
             bands: ["VV", "dataMask"],
-            units: "dB"
+            units: "DECIBEL"
         }],
         output: { bands: 4 },
         mosaicking: "ORBIT"

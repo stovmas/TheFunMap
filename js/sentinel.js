@@ -1399,8 +1399,7 @@ function evaluatePixel(samples) {
     _applySmoothToLayer(layer) {
         if (!layer || !layer._image) return;
         const smooth = document.getElementById('s2-smooth').checked;
-        layer._image.style.imageRendering = smooth ? 'auto' : '';
-        layer._image.style.filter = smooth ? 'blur(1px)' : '';
+        layer._image.style.imageRendering = smooth ? 'auto' : 'pixelated';
     },
 
     _applySmoothing() {
@@ -1549,7 +1548,7 @@ function setup() {
     return {
         input: [{
             bands: ["VV", "dataMask"],
-            units: "dB"
+            units: "DECIBEL"
         }],
         output: { bands: 4 },
         mosaicking: "ORBIT"
