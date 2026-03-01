@@ -1399,8 +1399,7 @@ function evaluatePixel(samples) {
     _applySmoothToLayer(layer) {
         if (!layer || !layer._image) return;
         const smooth = document.getElementById('s2-smooth').checked;
-        layer._image.style.imageRendering = smooth ? 'auto' : '';
-        layer._image.style.filter = smooth ? 'blur(1px)' : '';
+        layer._image.style.imageRendering = smooth ? 'auto' : 'pixelated';
     },
 
     _applySmoothing() {
@@ -1548,12 +1547,14 @@ function evaluatePixel(samples) {
 function setup() {
     return {
         input: [{
-            bands: ["VV", "dataMask"],
-            units: "dB"
+            bands: ["VV", "dataMask"]
         }],
         output: { bands: 4 },
         mosaicking: "ORBIT"
     };
+}
+function toDb(val) {
+    return 10 * Math.log10(Math.max(val, 1e-10));
 }
 function preProcessScenes(collections) {
     collections.scenes.orbits.sort(function(a, b) {
@@ -1565,7 +1566,9 @@ function evaluatePixel(samples, scenes) {
     if (samples.length < 2) return [0.5, 0.5, 0.5, 0];
     let before = samples[0];
     let after = samples[samples.length - 1];
-    let diff = after.VV - before.VV;
+    let beforeDb = toDb(before.VV);
+    let afterDb = toDb(after.VV);
+    let diff = afterDb - beforeDb;
     let threshold = ${threshold};
     let r = 0, g = 0, b = 0, a = 1;
     if (diff > threshold) {
@@ -1575,7 +1578,7 @@ function evaluatePixel(samples, scenes) {
         let intensity = Math.min(1, (-diff - threshold) / 5);
         r = 0; g = 0.2 * (1 - intensity); b = 1;
     } else {
-        let v = (after.VV + 20) / 25;
+        let v = (afterDb + 20) / 25;
         r = v * 0.7; g = v * 0.7; b = v * 0.7;
     }
     return [r, g, b, after.dataMask * before.dataMask];

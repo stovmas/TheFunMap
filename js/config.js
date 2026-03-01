@@ -171,12 +171,14 @@ function evaluatePixel(s) {
 function setup() {
     return {
         input: [{
-            bands: ["VV", "dataMask"],
-            units: "dB"
+            bands: ["VV", "dataMask"]
         }],
         output: { bands: 4 },
         mosaicking: "ORBIT"
     };
+}
+function toDb(val) {
+    return 10 * Math.log10(Math.max(val, 1e-10));
 }
 function preProcessScenes(collections) {
     collections.scenes.orbits = collections.scenes.orbits.filter(function(orbit) {
@@ -192,12 +194,14 @@ function evaluatePixel(samples, scenes) {
     if (samples.length < 2) return [0, 0, 0, 0];
     let after = samples[0];
     let before = samples[1];
-    let diff = after.VV - before.VV;
+    let afterDb = toDb(after.VV);
+    let beforeDb = toDb(before.VV);
+    let diff = afterDb - beforeDb;
     let threshold = THRESHOLD_DB;
     let r = 0, g = 0, b = 0;
     if (diff > threshold) { r = 1; g = 0; b = 0; }
     else if (diff < -threshold) { r = 0; g = 0; b = 1; }
-    else { let v = (after.VV + 20) / 25; r = v; g = v; b = v; }
+    else { let v = (afterDb + 20) / 25; r = v; g = v; b = v; }
     return [r, g, b, after.dataMask * before.dataMask];
 }`,
     },
