@@ -69,9 +69,15 @@ FunMap.Sentinel = {
             }
         });
 
-        // S2 spatial smoothing toggle
+        // S2 spatial smoothing toggle — re-fetch with server-side resampling
         document.getElementById('s2-smooth').addEventListener('change', () => {
-            this._applySmoothing();
+            if (document.getElementById('layer-sentinel2').checked) {
+                this._refreshS2();
+            }
+            if (this._compareMode === 's2') {
+                this._loadCompareImage('left');
+                this._loadCompareImage('right');
+            }
         });
 
         // S1 polarization change
@@ -195,6 +201,10 @@ FunMap.Sentinel = {
                             maxCloudCoverage: parseInt(cloud),
                             mosaickingOrder: 'mostRecent',
                         },
+                        processing: {
+                            upsampling: document.getElementById('s2-smooth').checked ? 'BILINEAR' : 'NEAREST',
+                            downsampling: document.getElementById('s2-smooth').checked ? 'BILINEAR' : 'NEAREST',
+                        },
                     }],
                 },
                 output: {
@@ -237,7 +247,6 @@ FunMap.Sentinel = {
                 interactive: false,
             });
             newLayer.addTo(FunMap.Map.map);
-            this._applySmoothToLayer(newLayer);
 
             // Keep old layer visible until new image has rendered
             newLayer.on('load', () => {
@@ -840,6 +849,10 @@ FunMap.Sentinel = {
                         maxCloudCoverage: parseInt(document.getElementById('s2-cloud').value),
                         mosaickingOrder: 'mostRecent',
                     },
+                    processing: {
+                        upsampling: document.getElementById('s2-smooth').checked ? 'BILINEAR' : 'NEAREST',
+                        downsampling: document.getElementById('s2-smooth').checked ? 'BILINEAR' : 'NEAREST',
+                    },
                 };
             } else {
                 evalscript = FunMap.Config.S1Evalscripts[vizVal];
@@ -932,7 +945,6 @@ FunMap.Sentinel = {
             }
             const newLayer = L.imageOverlay(imageUrl, bounds, overlayOpts);
             newLayer.addTo(map);
-            if (this._compareMode === 's2') this._applySmoothToLayer(newLayer);
 
             // Once the new image has rendered, remove the old one and update clip
             newLayer.on('load', () => {
@@ -1396,19 +1408,6 @@ function evaluatePixel(samples) {
         cvaImg.src = this._cvaUrl;
     },
 
-    _applySmoothToLayer(layer) {
-        if (!layer || !layer._image) return;
-        const smooth = document.getElementById('s2-smooth').checked;
-        layer._image.style.imageRendering = smooth ? 'auto' : 'pixelated';
-    },
-
-    _applySmoothing() {
-        this._applySmoothToLayer(this._s2Layer);
-        if (this._compareMode === 's2') {
-            this._applySmoothToLayer(this._compareLayers.left);
-            this._applySmoothToLayer(this._compareLayers.right);
-        }
-    },
 
     _closeCompare() {
         // Remove button handlers
