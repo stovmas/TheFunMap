@@ -15,6 +15,10 @@ FunMap.Sentinel = {
     _compareMaps: { left: null, right: null },
     _compareLayers: { left: null, right: null },
     _compareAbortCtrl: { left: null, right: null }, // AbortControllers for compare fetches
+    _cvaLayer: null,       // CVA overlay layer on compare map
+    _cvaUrl: null,         // ObjectURL for CVA image
+    _cvaAbortCtrl: null,   // AbortController for CVA fetch
+    _cvaActive: false,     // Whether CVA overlay is visible
     _changeLayer: null,
     _changeMode: false,
     _fetchGeneration: {},  // keyed by calendar group, cancels stale fetches
@@ -522,10 +526,24 @@ FunMap.Sentinel = {
                 this._loadCompareImage('left');
                 this._loadCompareImage('right');
                 this._fetchAvailableDates();
+                // Clear CVA when images change
+                if (this._cvaActive) this._removeCVA();
                 FunMap.Utils.toast('Compare images updating...', 'info');
+            },
+            cva: () => {
+                if (this._cvaActive) {
+                    this._removeCVA();
+                } else {
+                    this._runCVA();
+                }
+            },
+            downloadCva: () => {
+                this._downloadCVA();
             },
         };
         document.getElementById('btn-apply-compare').addEventListener('click', this._compareHandlers.apply);
+        document.getElementById('btn-cva-compare').addEventListener('click', this._compareHandlers.cva);
+        document.getElementById('btn-download-cva').addEventListener('click', this._compareHandlers.downloadCva);
 
         FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
     },
@@ -927,10 +945,332 @@ FunMap.Sentinel = {
         }
     },
 
+    // ---- Change Vector Analysis (CVA) ----
+
+    _getCVAEvalscript() {
+        // Multi-temporal CVA evalscript for Sentinel-2
+        // Compares the earliest and latest orbit within the date range.
+        // Outputs RGBA where color encodes change direction and alpha encodes magnitude.
+        return `//VERSION=3
+function setup() {
+    return {
+        input: [{
+            bands: ["B02", "B03", "B04", "B08", "B11", "B12", "dataMask"],
+        }],
+        output: { bands: 4 },
+        mosaicking: "ORBIT"
+    };
+}
+function preProcessScenes(collections) {
+    collections.scenes.orbits.sort(function(a, b) {
+        return new Date(a.dateFrom) - new Date(b.dateFrom);
+    });
+    return collections;
+}
+function evaluatePixel(samples) {
+    if (samples.length < 2) return [0, 0, 0, 0];
+    var before = samples[0];
+    var after = samples[samples.length - 1];
+    if (!before.dataMask || !after.dataMask) return [0, 0, 0, 0];
+
+    // Change vector per band
+    var dBlue  = after.B02 - before.B02;
+    var dGreen = after.B03 - before.B03;
+    var dRed   = after.B04 - before.B04;
+    var dNIR   = after.B08 - before.B08;
+    var dSWIR1 = after.B11 - before.B11;
+    var dSWIR2 = after.B12 - before.B12;
+
+    // Magnitude of change vector
+    var mag = Math.sqrt(dBlue*dBlue + dGreen*dGreen + dRed*dRed +
+                        dNIR*dNIR + dSWIR1*dSWIR1 + dSWIR2*dSWIR2);
+
+    // Threshold: ignore very small changes (noise)
+    if (mag < 0.04) return [0, 0, 0, 0];
+
+    // Normalize intensity (0..1), cap at reasonable max
+    var intensity = Math.min(1, (mag - 0.04) / 0.3);
+
+    // Determine dominant change direction by scoring categories:
+    // Structure/reflective: increase in visible (Blue+Green) relative to SWIR
+    var visIncrease = (dBlue + dGreen) / 2;
+    // Earth/soil: increase in Red+SWIR, decrease or flat in NIR
+    var soilScore = (dRed + dSWIR1 + dSWIR2) / 3 - dNIR * 0.5;
+    // Water/moisture: increase in Blue+Green, decrease in SWIR
+    var waterScore = (dBlue + dGreen) / 2 - (dSWIR1 + dSWIR2) / 2;
+    // Vegetation: increase in NIR, decrease in Red
+    var vegScore = dNIR - dRed;
+
+    var scores = [
+        Math.abs(visIncrease),
+        Math.abs(soilScore),
+        Math.abs(waterScore),
+        Math.abs(vegScore)
+    ];
+    var maxIdx = 0;
+    for (var i = 1; i < 4; i++) {
+        if (scores[i] > scores[maxIdx]) maxIdx = i;
+    }
+
+    var r = 0, g = 0, b = 0;
+    if (maxIdx === 0) {
+        // Structure/reflective - xbox green
+        r = 0.05; g = 1.0; b = 0.05;
+    } else if (maxIdx === 1) {
+        // Earth/soil disturbance - magenta/pink
+        r = 1.0; g = 0.2; b = 0.8;
+    } else if (maxIdx === 2) {
+        // Water/moisture - cyan
+        r = 0.2; g = 0.8; b = 1.0;
+    } else {
+        // Vegetation change - amber/orange
+        r = 1.0; g = 0.67; b = 0.0;
+    }
+
+    return [r * intensity, g * intensity, b * intensity, intensity * 0.85];
+}`;
+    },
+
+    _getCVAEvalscriptS1() {
+        // Simpler CVA for Sentinel-1 (SAR) — only has VV/VH
+        return `//VERSION=3
+function setup() {
+    return {
+        input: [{
+            bands: ["VV", "VH", "dataMask"],
+            units: "LINEAR_POWER"
+        }],
+        output: { bands: 4 },
+        mosaicking: "ORBIT"
+    };
+}
+function preProcessScenes(collections) {
+    collections.scenes.orbits.sort(function(a, b) {
+        return new Date(a.dateFrom) - new Date(b.dateFrom);
+    });
+    return collections;
+}
+function evaluatePixel(samples) {
+    if (samples.length < 2) return [0, 0, 0, 0];
+    var before = samples[0];
+    var after = samples[samples.length - 1];
+    if (!before.dataMask || !after.dataMask) return [0, 0, 0, 0];
+
+    var dVV = after.VV - before.VV;
+    var dVH = after.VH - before.VH;
+    var mag = Math.sqrt(dVV*dVV + dVH*dVH);
+
+    var threshold = 0.005;
+    if (mag < threshold) return [0, 0, 0, 0];
+
+    var intensity = Math.min(1, (mag - threshold) / 0.05);
+
+    // VV increase + VH increase = new structures (double-bounce)
+    // VV decrease = removal / smoothing
+    var r, g, b;
+    if (dVV > 0 && dVH > 0) {
+        // New structures / objects - xbox green
+        r = 0.05; g = 1.0; b = 0.05;
+    } else if (dVV > 0 && dVH <= 0) {
+        // Surface roughening / soil disturbance - magenta
+        r = 1.0; g = 0.2; b = 0.8;
+    } else if (dVV < 0 && dVH < 0) {
+        // Smoothing / clearing - cyan
+        r = 0.2; g = 0.8; b = 1.0;
+    } else {
+        // Mixed change - amber
+        r = 1.0; g = 0.67; b = 0.0;
+    }
+
+    return [r * intensity, g * intensity, b * intensity, intensity * 0.85];
+}`;
+    },
+
+    async _runCVA() {
+        if (!this._compareMode || !this._compareMap) return;
+
+        const dateLeft = document.getElementById('compare-date-left').value;
+        const dateRight = document.getElementById('compare-date-right').value;
+        if (!dateLeft || !dateRight) {
+            FunMap.Utils.toast('Select both BEFORE and AFTER dates to run CVA', 'warning');
+            return;
+        }
+
+        // Abort any previous CVA request
+        if (this._cvaAbortCtrl) this._cvaAbortCtrl.abort();
+        const abortCtrl = new AbortController();
+        this._cvaAbortCtrl = abortCtrl;
+
+        const loadingEl = document.getElementById('cva-loading');
+        if (loadingEl) loadingEl.classList.remove('hidden');
+        FunMap.Utils.setStatus('COMPUTING CHANGE VECTOR ANALYSIS...');
+
+        try {
+            const token = await FunMap.Settings.getCDSEToken();
+
+            const map = this._compareMap;
+            const bounds = this._compareBounds || map.getBounds();
+            const bbox = FunMap.Utils.bboxFromBounds(bounds);
+            const mapSize = map.getSize();
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const width = Math.min(Math.round(mapSize.x * dpr), 2500);
+            const height = Math.min(Math.round(mapSize.y * dpr), 2500);
+
+            // Order dates chronologically
+            const fromDate = dateLeft < dateRight ? dateLeft : dateRight;
+            const toDate = dateLeft < dateRight ? dateRight : dateLeft;
+
+            let evalscript, dataConfig;
+            if (this._compareMode === 's2') {
+                evalscript = this._getCVAEvalscript();
+                dataConfig = {
+                    type: 'sentinel-2-l2a',
+                    dataFilter: {
+                        timeRange: {
+                            from: fromDate + 'T00:00:00Z',
+                            to: toDate + 'T23:59:59Z',
+                        },
+                        maxCloudCoverage: parseInt(document.getElementById('s2-cloud').value),
+                        mosaickingOrder: 'mostRecent',
+                    },
+                };
+            } else {
+                evalscript = this._getCVAEvalscriptS1();
+                dataConfig = {
+                    type: 'sentinel-1-grd',
+                    dataFilter: {
+                        timeRange: {
+                            from: fromDate + 'T00:00:00Z',
+                            to: toDate + 'T23:59:59Z',
+                        },
+                        mosaickingOrder: 'mostRecent',
+                    },
+                    processing: {
+                        backCoeff: 'GAMMA0_TERRAIN',
+                        orthorectify: true,
+                    },
+                };
+            }
+
+            const requestBody = {
+                input: {
+                    bounds: {
+                        bbox: bbox,
+                        properties: { crs: 'http://www.opengis.net/def/crs/EPSG/0/4326' },
+                    },
+                    data: [dataConfig],
+                },
+                output: {
+                    width: width,
+                    height: height,
+                    responses: [{ identifier: 'default', format: { type: 'image/png' } }],
+                },
+                evalscript: evalscript,
+            };
+
+            const response = await fetch(FunMap.Config.CDSE.processEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'image/png',
+                },
+                body: JSON.stringify(requestBody),
+                signal: abortCtrl.signal,
+            });
+
+            if (!response.ok) {
+                const errText = await response.text().catch(() => '');
+                throw new Error(`CVA request failed: ${response.status} - ${errText.substring(0, 200)}`);
+            }
+
+            const blob = await response.blob();
+
+            // Revoke previous CVA URL
+            if (this._cvaUrl) URL.revokeObjectURL(this._cvaUrl);
+            const imageUrl = URL.createObjectURL(blob);
+            this._cvaUrl = imageUrl;
+
+            // Remove old CVA layer if any
+            if (this._cvaLayer && map.hasLayer(this._cvaLayer)) {
+                map.removeLayer(this._cvaLayer);
+            }
+
+            // Create a pane above everything for the CVA overlay
+            if (!map.getPane('cvaPane')) {
+                const pane = map.createPane('cvaPane');
+                pane.style.zIndex = '660';
+            }
+
+            this._cvaLayer = L.imageOverlay(imageUrl, bounds, {
+                opacity: 0.9,
+                interactive: false,
+                pane: 'cvaPane',
+            });
+            this._cvaLayer.addTo(map);
+            this._cvaActive = true;
+
+            // Show legend and download button, highlight CVA button
+            document.getElementById('cva-legend').classList.remove('hidden');
+            document.getElementById('btn-download-cva').classList.remove('hidden');
+            document.getElementById('btn-cva-compare').classList.add('accent');
+
+            if (loadingEl) loadingEl.classList.add('hidden');
+            FunMap.Utils.setStatus('CVA OVERLAY ACTIVE');
+            FunMap.Utils.toast('Change Vector Analysis complete', 'success');
+
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            if (loadingEl) loadingEl.classList.add('hidden');
+            console.error('CVA error:', err);
+            FunMap.Utils.toast('CVA: ' + err.message, 'error');
+            FunMap.Utils.setStatus('CVA ERROR');
+        }
+    },
+
+    _removeCVA() {
+        if (this._cvaAbortCtrl) { this._cvaAbortCtrl.abort(); this._cvaAbortCtrl = null; }
+        if (this._cvaLayer && this._compareMap && this._compareMap.hasLayer(this._cvaLayer)) {
+            this._compareMap.removeLayer(this._cvaLayer);
+        }
+        this._cvaLayer = null;
+        if (this._cvaUrl) { URL.revokeObjectURL(this._cvaUrl); this._cvaUrl = null; }
+        this._cvaActive = false;
+
+        const legend = document.getElementById('cva-legend');
+        if (legend) legend.classList.add('hidden');
+        const dlBtn = document.getElementById('btn-download-cva');
+        if (dlBtn) dlBtn.classList.add('hidden');
+        const cvaBtn = document.getElementById('btn-cva-compare');
+        if (cvaBtn) cvaBtn.classList.remove('accent');
+        const loadingEl = document.getElementById('cva-loading');
+        if (loadingEl) loadingEl.classList.add('hidden');
+
+        if (this._compareMode) FunMap.Utils.setStatus('COMPARE MODE ACTIVE');
+    },
+
+    _downloadCVA() {
+        if (!this._cvaUrl) {
+            FunMap.Utils.toast('No CVA overlay to download', 'warning');
+            return;
+        }
+        const dateLeft = document.getElementById('compare-date-left').value || 'before';
+        const dateRight = document.getElementById('compare-date-right').value || 'after';
+        const a = document.createElement('a');
+        a.href = this._cvaUrl;
+        a.download = `CVA_${dateLeft}_to_${dateRight}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        FunMap.Utils.toast('CVA image downloaded', 'success');
+    },
+
     _closeCompare() {
-        // Remove Apply handler
+        // Remove button handlers
         if (this._compareHandlers) {
             document.getElementById('btn-apply-compare').removeEventListener('click', this._compareHandlers.apply);
+            document.getElementById('btn-cva-compare').removeEventListener('click', this._compareHandlers.cva);
+            document.getElementById('btn-download-cva').removeEventListener('click', this._compareHandlers.downloadCva);
             this._compareHandlers = null;
         }
 
@@ -948,6 +1288,9 @@ FunMap.Sentinel = {
         this._compareMoveTimer = null;
         if (this._compareAbortCtrl.left) { this._compareAbortCtrl.left.abort(); this._compareAbortCtrl.left = null; }
         if (this._compareAbortCtrl.right) { this._compareAbortCtrl.right.abort(); this._compareAbortCtrl.right = null; }
+
+        // Clean up CVA
+        this._removeCVA();
 
         // Destroy compare map
         if (this._compareMap) {

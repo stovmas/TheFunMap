@@ -337,6 +337,15 @@
                 <div class="compare-label-overlay compare-label-right">AFTER</div>
                 <div id="compare-loading-left" class="compare-loading hidden">LOADING...</div>
                 <div id="compare-loading-right" class="compare-loading hidden">LOADING...</div>
+                <div id="cva-loading" class="compare-loading hidden">COMPUTING CVA...</div>
+                <div id="cva-legend" class="cva-legend hidden">
+                    <div class="cva-legend-title">CHANGE VECTOR ANALYSIS</div>
+                    <div class="cva-legend-row"><span class="cva-swatch" style="background:#0dff0d"></span> Structure / Reflective</div>
+                    <div class="cva-legend-row"><span class="cva-swatch" style="background:#ff33cc"></span> Earth / Soil Disturbance</div>
+                    <div class="cva-legend-row"><span class="cva-swatch" style="background:#33ccff"></span> Water / Moisture Change</div>
+                    <div class="cva-legend-row"><span class="cva-swatch" style="background:#ffaa00"></span> Vegetation Change</div>
+                    <div class="cva-legend-row" style="opacity:0.6"><span class="cva-swatch" style="background:transparent;border:1px solid #555"></span> No Significant Change</div>
+                </div>
             </div>
             <!-- Compare toolbar -->
             <div id="compare-toolbar" class="hidden">
@@ -347,6 +356,8 @@
                 </div>
                 <div class="compare-actions">
                     <button id="btn-apply-compare" class="xbox-btn sm">APPLY</button>
+                    <button id="btn-cva-compare" class="xbox-btn sm" title="Change Vector Analysis overlay">CVA</button>
+                    <button id="btn-download-cva" class="xbox-btn sm hidden" title="Download CVA overlay as PNG">SAVE</button>
                     <button id="btn-close-compare" class="xbox-btn sm accent">CLOSE</button>
                 </div>
                 <div class="compare-side" id="compare-right-controls">
