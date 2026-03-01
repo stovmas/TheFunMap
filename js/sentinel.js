@@ -1359,8 +1359,12 @@ function evaluatePixel(samples) {
         // Clean up CVA
         this._removeCVA();
 
-        // Destroy compare map
+        // Capture compare map position before destroying it
+        let compareCenter = null;
+        let compareZoom = null;
         if (this._compareMap) {
+            compareCenter = this._compareMap.getCenter();
+            compareZoom = this._compareMap.getZoom();
             this._compareMap.remove();
             this._compareMap = null;
         }
@@ -1381,8 +1385,11 @@ function evaluatePixel(samples) {
         document.getElementById('compare-container').classList.add('hidden');
         document.getElementById('compare-toolbar').classList.add('hidden');
 
-        // Force main map to recalculate size and restore zoom ticker
+        // Force main map to recalculate size, then sync to compare viewport
         FunMap.Map.map.invalidateSize();
+        if (compareCenter && compareZoom != null) {
+            FunMap.Map.map.setView(compareCenter, compareZoom, { animate: false });
+        }
         document.getElementById('zoom-level').textContent =
             Math.round(FunMap.Map.getZoom());
         FunMap.Utils.setStatus('SYSTEMS ONLINE');
