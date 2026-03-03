@@ -21,7 +21,7 @@ FunMap.Config = {
             'VIIRS_SNPP_NRT': 'VIIRS S-NPP',
             'VIIRS_NOAA20_NRT': 'VIIRS NOAA-20',
             'VIIRS_NOAA21_NRT': 'VIIRS NOAA-21',
-            'MODIS_SP': 'MODIS',
+            'MODIS_NRT': 'MODIS',
         },
     },
 

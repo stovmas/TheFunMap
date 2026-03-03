@@ -145,6 +145,7 @@ FunMap.Map = {
         if (this._viewChangeTimer) clearTimeout(this._viewChangeTimer);
         this._viewChangeTimer = setTimeout(() => {
             FunMap.Sentinel.onViewChange();
+            FunMap.FIRMS.onViewChange();
         }, 300);
     },
 
