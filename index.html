@@ -197,13 +197,29 @@
                             </div>
                             <div class="layer-options" data-layer="firms">
                                 <div class="option-row">
-                                    <label>Satellite</label>
-                                    <select id="firms-source" class="xbox-select">
-                                        <option value="VIIRS_SNPP_NRT">VIIRS SNPP</option>
-                                        <option value="VIIRS_NOAA20_NRT">VIIRS NOAA-20</option>
-                                        <option value="VIIRS_NOAA21_NRT">VIIRS NOAA-21</option>
-                                        <option value="MODIS_NRT">MODIS</option>
-                                    </select>
+                                    <label>Satellites</label>
+                                    <div class="firms-sources">
+                                        <label class="xbox-check sm">
+                                            <input type="checkbox" class="firms-source-cb" value="VIIRS_SNPP_NRT" checked>
+                                            <span class="check-mark"></span>
+                                            VIIRS SNPP
+                                        </label>
+                                        <label class="xbox-check sm">
+                                            <input type="checkbox" class="firms-source-cb" value="VIIRS_NOAA20_NRT">
+                                            <span class="check-mark"></span>
+                                            VIIRS NOAA-20
+                                        </label>
+                                        <label class="xbox-check sm">
+                                            <input type="checkbox" class="firms-source-cb" value="VIIRS_NOAA21_NRT">
+                                            <span class="check-mark"></span>
+                                            VIIRS NOAA-21
+                                        </label>
+                                        <label class="xbox-check sm">
+                                            <input type="checkbox" class="firms-source-cb" value="MODIS_SP">
+                                            <span class="check-mark"></span>
+                                            MODIS
+                                        </label>
+                                    </div>
                                 </div>
                                 <div class="option-row">
                                     <label>Date</label>

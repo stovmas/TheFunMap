@@ -80,13 +80,19 @@ FunMap.Utils = {
 
     // Parse CSV to array of objects
     parseCSV(csv) {
-        const lines = csv.trim().split('\n');
+        // Normalise line endings and strip BOM
+        const normalised = csv.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const lines = normalised.trim().split('\n');
         if (lines.length < 2) return [];
-        const headers = lines[0].split(',').map(h => h.trim());
+        // Strip any trailing empty header caused by trailing comma
+        let headers = lines[0].split(',').map(h => h.trim());
+        while (headers.length > 0 && headers[headers.length - 1] === '') headers.pop();
         const rows = [];
         for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue; // skip blank lines
             const vals = this._splitCSVLine(lines[i]);
-            if (vals.length !== headers.length) continue;
+            // Allow trailing extra columns (trim to header count)
+            if (vals.length < headers.length) continue;
             const row = {};
             headers.forEach((h, idx) => {
                 row[h] = vals[idx];

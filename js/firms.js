@@ -5,7 +5,7 @@
 FunMap.FIRMS = {
     _layerGroup: null,
     _data: [],
-    _abortCtrl: null,
+    _abortCtrls: [],
 
     init() {
         this._layerGroup = L.layerGroup();
@@ -24,8 +24,15 @@ FunMap.FIRMS = {
         // Attach calendar to the FIRMS date picker
         FunMap.Calendar.attach('firms-date');
 
-        // Source/range/date/color changes
-        ['firms-source', 'firms-range', 'firms-date', 'firms-color'].forEach(id => {
+        // Satellite checkbox, range, date, color changes all trigger reload
+        document.querySelectorAll('.firms-source-cb').forEach(cb => {
+            cb.addEventListener('change', () => {
+                if (document.getElementById('layer-firms').checked) {
+                    this._loadData();
+                }
+            });
+        });
+        ['firms-range', 'firms-date', 'firms-color'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => {
                 if (document.getElementById('layer-firms').checked) {
                     this._loadData();
@@ -34,22 +41,31 @@ FunMap.FIRMS = {
         });
     },
 
+    _getSelectedSources() {
+        const sources = [];
+        document.querySelectorAll('.firms-source-cb:checked').forEach(cb => {
+            sources.push(cb.value);
+        });
+        return sources;
+    },
+
     _enable() {
         this._layerGroup.addTo(FunMap.Map.map);
         this._loadData();
     },
 
     _disable() {
+        this._abortCtrls.forEach(c => c.abort());
+        this._abortCtrls = [];
         FunMap.Map.map.removeLayer(this._layerGroup);
         this._layerGroup.clearLayers();
         this._data = [];
     },
 
     async _loadData() {
-        // Cancel any in-flight request so the new one takes priority
-        if (this._abortCtrl) this._abortCtrl.abort();
-        const abortCtrl = new AbortController();
-        this._abortCtrl = abortCtrl;
+        // Cancel any in-flight requests
+        this._abortCtrls.forEach(c => c.abort());
+        this._abortCtrls = [];
 
         const firmsKey = FunMap.Settings.getApiKey('firms_key');
         if (!firmsKey) {
@@ -57,7 +73,14 @@ FunMap.FIRMS = {
             return;
         }
 
-        const source = document.getElementById('firms-source').value;
+        const sources = this._getSelectedSources();
+        if (sources.length === 0) {
+            FunMap.Utils.toast('Select at least one satellite source', 'warning');
+            this._layerGroup.clearLayers();
+            this._data = [];
+            return;
+        }
+
         const range = document.getElementById('firms-range').value;
         const dateVal = document.getElementById('firms-date').value; // YYYY-MM-DD or empty
         const bounds = FunMap.Map.getBounds();
@@ -66,36 +89,27 @@ FunMap.FIRMS = {
         // Use bounding box for the current view
         const area = `${bbox[0].toFixed(2)},${bbox[1].toFixed(2)},${bbox[2].toFixed(2)},${bbox[3].toFixed(2)}`;
 
-        // Append date for historical queries; omit for latest data
-        let url = `${FunMap.Config.FIRMS.areaEndpoint}/csv/${firmsKey}/${source}/${area}/${range}`;
-        if (dateVal) url += `/${dateVal}`;
-
         FunMap.Utils.setStatus('LOADING FIRE DATA...');
 
+        // Fetch all selected sources in parallel
+        const fetches = sources.map(source => {
+            const abortCtrl = new AbortController();
+            this._abortCtrls.push(abortCtrl);
+
+            let url = `${FunMap.Config.FIRMS.areaEndpoint}/csv/${firmsKey}/${source}/${area}/${range}`;
+            if (dateVal) url += `/${dateVal}`;
+
+            return this._fetchSource(url, source, abortCtrl);
+        });
+
         try {
-            const response = await fetch(url, { signal: abortCtrl.signal });
-            if (!response.ok) {
-                throw new Error(`FIRMS API error: ${response.status}`);
-            }
-
-            const csv = await response.text();
-
-            // FIRMS API returns error messages as plain text with 200 status.
-            // Detect these before trying to parse as CSV.
-            if (!csv.includes(',') || csv.length < 40) {
-                throw new Error(csv.trim() || 'Empty response from FIRMS API');
-            }
-
-            this._data = FunMap.Utils.parseCSV(csv);
-
-            // If headers were present but every row was skipped, the format may have changed
-            if (this._data.length === 0 && csv.trim().split('\n').length > 1) {
-                console.warn('FIRMS: CSV had rows but none parsed. First 500 chars:', csv.substring(0, 500));
-                FunMap.Utils.toast('FIRMS data received but could not be parsed — check console for details', 'warning');
-            }
+            const results = await Promise.all(fetches);
+            this._data = results.flat();
 
             this._renderData(this._data);
-            FunMap.Utils.setStatus(`${this._data.length} FIRE DETECTIONS LOADED`);
+
+            const sourceNames = sources.map(s => FunMap.Config.FIRMS.sources[s] || s).join(', ');
+            FunMap.Utils.setStatus(`${this._data.length} FIRE DETECTIONS | ${sourceNames}`);
 
             if (this._data.length === 0) {
                 FunMap.Utils.toast('No fire detections found in this area/timeframe', 'info');
@@ -107,6 +121,41 @@ FunMap.FIRMS = {
             FunMap.Utils.toast('FIRMS: ' + err.message, 'error');
             FunMap.Utils.setStatus('FIRMS ERROR');
         }
+    },
+
+    async _fetchSource(url, source, abortCtrl) {
+        const response = await fetch(url, { signal: abortCtrl.signal });
+
+        if (!response.ok) {
+            const errText = await response.text().catch(() => '');
+            console.error(`FIRMS ${source}: HTTP ${response.status}`, errText.substring(0, 300));
+            throw new Error(`FIRMS API error (${source}): ${response.status}`);
+        }
+
+        const csv = await response.text();
+
+        // FIRMS API returns error messages as plain text with 200 status.
+        // Detect these before trying to parse as CSV.
+        if (!csv.includes(',') || csv.length < 40) {
+            const msg = csv.trim() || 'Empty response';
+            console.error(`FIRMS ${source}: non-CSV response:`, msg);
+            throw new Error(`${source}: ${msg}`);
+        }
+
+        const data = FunMap.Utils.parseCSV(csv);
+
+        // If headers were present but every row was skipped, the format may have changed
+        if (data.length === 0 && csv.trim().split('\n').length > 1) {
+            console.warn(`FIRMS ${source}: CSV had rows but none parsed. First 500 chars:`, csv.substring(0, 500));
+        }
+
+        // Tag each point with its source for the popup
+        const sourceName = FunMap.Config.FIRMS.sources[source] || source;
+        data.forEach(row => {
+            if (!row.satellite) row.satellite = sourceName;
+        });
+
+        return data;
     },
 
     _renderData(data) {
@@ -151,7 +200,7 @@ FunMap.FIRMS = {
             const popupHtml = FunMap.Utils.popupTable('FIRE DETECTION', [
                 ['Date', point.acq_date],
                 ['Time (UTC)', point.acq_time],
-                ['Satellite', point.satellite || FunMap.Config.FIRMS.sources[document.getElementById('firms-source').value]],
+                ['Satellite', point.satellite],
                 ['Confidence', point.confidence],
                 ['FRP (MW)', point.frp],
                 ['Brightness', point.bright_ti4 || point.brightness],

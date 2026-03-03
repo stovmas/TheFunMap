@@ -548,6 +548,25 @@ textarea.xbox-input {
     clip-path: polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px));
 }
 
+.xbox-check.sm {
+    font-size: 0.78em;
+    gap: 5px;
+}
+.xbox-check.sm .check-mark {
+    width: 13px;
+    height: 13px;
+}
+.xbox-check.sm input:checked + .check-mark::after {
+    width: 7px;
+    height: 7px;
+}
+.firms-sources {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 2px;
+}
+
 /* Radio */
 .xbox-radio {
     display: flex;
