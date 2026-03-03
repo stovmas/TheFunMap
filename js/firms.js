@@ -216,6 +216,7 @@ FunMap.FIRMS = {
         this._layerGroup.clearLayers();
 
         const colorBy = document.getElementById('firms-color').value;
+        const zoom = FunMap.Map.getZoom();
         const maxPoints = FunMap.Config.Defaults.maxFirePoints;
         const toRender = data.length > maxPoints ? data.slice(0, maxPoints) : data;
 
@@ -244,15 +245,15 @@ FunMap.FIRMS = {
             }
 
             const frp = parseFloat(point.frp) || 0;
-            const radius = Math.max(3, Math.min(12, Math.sqrt(frp) * 0.8 + 3));
+            const radius = this._scaleRadius(frp, zoom);
 
             const marker = L.circleMarker([lat, lng], {
                 radius: radius,
                 fillColor: color,
                 color: color,
-                weight: 1,
-                opacity: 0.8,
-                fillOpacity: 0.6,
+                weight: zoom < 6 ? 0 : 1,
+                opacity: 0.9,
+                fillOpacity: zoom < 4 ? 0.9 : 0.6,
                 // Defer popup creation to click time for performance
                 bubblingMouseEvents: false,
             });
@@ -297,6 +298,17 @@ FunMap.FIRMS = {
         if (data.length > maxPoints) {
             FunMap.Utils.toast(`Showing ${maxPoints} of ${data.length} fire points. Zoom in for more detail.`, 'info');
         }
+    },
+
+    /** Radius that shrinks at low zoom so dots stay discernible */
+    _scaleRadius(frp, zoom) {
+        // Base radius from fire radiative power (0-1 range for scaling)
+        const base = Math.sqrt(frp) * 0.8 + 3;
+        // Zoom scale: 1px at z2, grows to full size by z10+
+        const zoomScale = Math.min(1, Math.max(0.2, (zoom - 2) / 8));
+        const minR = zoom < 4 ? 1 : zoom < 7 ? 2 : 3;
+        const maxR = zoom < 4 ? 3 : zoom < 7 ? 6 : 12;
+        return Math.max(minR, Math.min(maxR, base * zoomScale));
     },
 
     reload() {
