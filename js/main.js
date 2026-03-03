@@ -57,6 +57,7 @@
             FunMap.FIRMS.init();
             FunMap.Conflict.init();
             FunMap.Pins.init();
+            FunMap.Janus.init();
             FunMap.UI.init();
 
             // Set data timestamp

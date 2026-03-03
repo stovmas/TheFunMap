@@ -63,6 +63,11 @@ FunMap.UI = {
                     FunMap.Sentinel._closeChangeDetection();
                     return;
                 }
+                // Cancel Janus drawing if active
+                if (FunMap.Janus._drawMode) {
+                    FunMap.Janus._cancelDraw();
+                    return;
+                }
                 // Deactivate measurement if active
                 if (this._measuringActive) {
                     this._deactivateMeasure();

@@ -1596,6 +1596,151 @@ textarea.xbox-input {
 }
 
 /* ============================================
+   JANUS EYE
+   ============================================ */
+.janus-layer-group {
+    border-top: 1px solid rgba(135, 197, 64, 0.18) !important;
+    border-bottom: 1px solid rgba(135, 197, 64, 0.18) !important;
+}
+.janus-title-text {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--xbox-green);
+}
+.janus-draw-tools {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+.janus-monitor-list {
+    max-height: 350px;
+    overflow-y: auto;
+}
+.janus-monitor-item {
+    padding: 8px 4px;
+    border-bottom: 1px solid rgba(135, 197, 64, 0.08);
+    transition: background 0.1s;
+}
+.janus-monitor-item:hover {
+    background: rgba(135, 197, 64, 0.04);
+}
+.janus-monitor-item.janus-due {
+    border-left: 2px solid var(--xbox-orange);
+    padding-left: 6px;
+}
+.janus-monitor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+.janus-monitor-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--xbox-text-bright);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    margin-right: 6px;
+}
+.janus-monitor-badge {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--xbox-green);
+    background: rgba(135, 197, 64, 0.12);
+    border: 1px solid rgba(135, 197, 64, 0.25);
+    padding: 1px 6px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+.janus-monitor-meta {
+    font-size: 10px;
+    color: var(--xbox-text-dim);
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+.janus-monitor-actions {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+}
+
+/* Janus changelog */
+.janus-changelog-body {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+.janus-changelog-entry {
+    padding: 10px 8px;
+    border-bottom: 1px solid rgba(135, 197, 64, 0.08);
+    border-left: 3px solid transparent;
+}
+.janus-changelog-entry.janus-change-yes {
+    border-left-color: var(--xbox-orange);
+}
+.janus-changelog-entry.janus-change-no {
+    border-left-color: var(--xbox-green-dim);
+}
+.janus-changelog-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--xbox-text);
+    margin-bottom: 4px;
+}
+.janus-changelog-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    border: 1px solid;
+}
+.janus-change-yes .janus-changelog-icon {
+    color: var(--xbox-orange);
+    border-color: var(--xbox-orange);
+    background: rgba(255, 152, 0, 0.12);
+}
+.janus-change-no .janus-changelog-icon {
+    color: var(--xbox-text-dim);
+    border-color: var(--xbox-text-dim);
+    background: rgba(107, 143, 110, 0.1);
+}
+.janus-changelog-range {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--xbox-text-dim);
+    margin-left: auto;
+}
+.janus-changelog-summary {
+    font-size: 12px;
+    color: var(--xbox-text);
+    line-height: 1.5;
+    margin-bottom: 4px;
+}
+.janus-changelog-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.janus-detail-tag {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--xbox-text-dim);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(135, 197, 64, 0.1);
+    padding: 1px 6px;
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 @media (max-width: 768px) {

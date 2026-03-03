@@ -290,6 +290,24 @@
                             </div>
                         </div>
 
+                        <!-- Janus Eye -->
+                        <div class="layer-group janus-layer-group">
+                            <div class="layer-group-title">
+                                <span class="janus-title-text">JANUS EYE</span>
+                                <span class="zoom-badge" title="Area monitoring">MON</span>
+                            </div>
+                            <div class="layer-options janus-options">
+                                <div class="janus-draw-tools">
+                                    <button id="janus-draw-rect" class="xbox-btn xs" title="Draw rectangle on map">RECTANGLE</button>
+                                    <button id="janus-draw-poly" class="xbox-btn xs" title="Draw polygon on map">POLYGON</button>
+                                    <button id="janus-use-viewport" class="xbox-btn xs" title="Use current viewport">VIEWPORT</button>
+                                </div>
+                                <div id="janus-monitor-list" class="janus-monitor-list">
+                                    <div class="empty-state">No watch zones. Use the tools above to select an area.</div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- User Pins -->
                         <div class="layer-group">
                             <div class="layer-group-title">
@@ -617,6 +635,74 @@
             </div>
         </div>
 
+        <!-- Janus Eye Config Dialog -->
+        <div id="janus-config-dialog" class="modal-overlay hidden">
+            <div class="modal xbox-modal">
+                <div class="modal-header">
+                    <span id="janus-config-title">CONFIGURE WATCH ZONE</span>
+                    <button class="xbox-btn xs close-modal" id="janus-config-cancel-x">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Zone Name</label>
+                        <input type="text" id="janus-config-name" class="xbox-input" placeholder="e.g. Eastern Wildfire Zone">
+                    </div>
+                    <div class="form-group">
+                        <label>Check Interval</label>
+                        <select id="janus-config-interval" class="xbox-select">
+                            <option value="daily">Daily</option>
+                            <option value="weekly" selected>Weekly</option>
+                            <option value="biweekly">Bi-Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Data Source</label>
+                        <select id="janus-config-source" class="xbox-select">
+                            <option value="sentinel2">Sentinel-2 Optical</option>
+                            <option value="sentinel1">Sentinel-1 SAR</option>
+                            <option value="firms">NASA FIRMS (Fires)</option>
+                            <option value="conflict">Conflict Events</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Visualization / Filter</label>
+                        <select id="janus-config-viz" class="xbox-select">
+                            <option value="TRUE_COLOR">True Color RGB</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="janus-config-cva-row">
+                        <label class="xbox-check">
+                            <input type="checkbox" id="janus-config-cva">
+                            <span class="check-mark"></span>
+                            INCLUDE CVA (CHANGE VECTOR ANALYSIS)
+                        </label>
+                        <small>Produces a CVA change report per check, comparing before/after imagery.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="janus-config-cancel" class="xbox-btn sm ghost">CANCEL</button>
+                    <button id="janus-config-save" class="xbox-btn sm">SAVE WATCH ZONE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Janus Eye Changelog Dialog -->
+        <div id="janus-changelog-dialog" class="modal-overlay hidden">
+            <div class="modal xbox-modal wide">
+                <div class="modal-header">
+                    <span>CHANGELOG: <span id="janus-changelog-title"></span></span>
+                    <button class="xbox-btn xs close-modal" id="janus-changelog-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="janus-changelog-body" class="janus-changelog-body">
+                        <div class="empty-state">No reports yet.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Loading overlay -->
         <div id="loading-overlay" class="hidden">
             <div class="loading-spinner">
@@ -639,6 +725,7 @@
     <script src="js/firms.js"></script>
     <script src="js/conflict.js"></script>
     <script src="js/pins.js"></script>
+    <script src="js/janus.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/main.js"></script>
 </body>
