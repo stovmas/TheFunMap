@@ -73,6 +73,11 @@ FunMap.UI = {
                     FunMap.Janus._closeConfig();
                     return;
                 }
+                // Close the Janus report viewer
+                if (!document.getElementById('janus-viewer').classList.contains('hidden')) {
+                    FunMap.Janus._closeViewer();
+                    return;
+                }
                 // Deactivate measurement if active
                 if (this._measuringActive) {
                     this._deactivateMeasure();

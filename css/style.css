@@ -1668,31 +1668,34 @@ textarea.xbox-input {
     flex-wrap: wrap;
 }
 
-/* Janus changelog */
-.janus-changelog-body {
-    max-height: 60vh;
-    overflow-y: auto;
+.janus-waiting {
+    color: var(--xbox-orange);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.5px;
 }
-.janus-changelog-entry {
-    padding: 10px 8px;
-    border-bottom: 1px solid rgba(135, 197, 64, 0.08);
-    border-left: 3px solid transparent;
-}
-.janus-changelog-entry.janus-change-yes {
-    border-left-color: var(--xbox-orange);
-}
-.janus-changelog-entry.janus-change-no {
-    border-left-color: var(--xbox-green-dim);
-}
-.janus-changelog-date {
+
+/* Janus config: source + layer checkboxes */
+.janus-config-sources {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--xbox-text);
-    margin-bottom: 4px;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(135, 197, 64, 0.12);
 }
+.janus-src-block > .xbox-check {
+    font-size: 12px;
+    font-weight: 600;
+}
+.janus-viz-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 5px 0 2px 24px;
+}
+
+/* Shared changelog bits (icons, tags) */
 .janus-changelog-icon {
     width: 18px;
     height: 18px;
@@ -1714,18 +1717,6 @@ textarea.xbox-input {
     border-color: var(--xbox-text-dim);
     background: rgba(107, 143, 110, 0.1);
 }
-.janus-changelog-range {
-    font-size: 10px;
-    font-family: var(--font-mono);
-    color: var(--xbox-text-dim);
-    margin-left: auto;
-}
-.janus-changelog-summary {
-    font-size: 12px;
-    color: var(--xbox-text);
-    line-height: 1.5;
-    margin-bottom: 4px;
-}
 .janus-changelog-details {
     display: flex;
     flex-wrap: wrap;
@@ -1739,8 +1730,219 @@ textarea.xbox-input {
     border: 1px solid rgba(135, 197, 64, 0.1);
     padding: 1px 6px;
 }
-.janus-changelog-actions {
-    margin-top: 6px;
+
+/* Janus report viewer (full-screen LOG tab) */
+#janus-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 2500;
+    background: var(--xbox-black);
+    display: flex;
+    flex-direction: column;
+}
+.janus-viewer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--xbox-panel);
+    border-bottom: 1px solid var(--xbox-panel-border);
+}
+.janus-viewer-titles {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    min-width: 0;
+}
+.janus-viewer-title {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--xbox-green);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.janus-viewer-sub {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--xbox-text-dim);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.janus-viewer-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+.janus-viewer-reports {
+    width: 280px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--xbox-panel-border);
+    background: var(--xbox-panel);
+    overflow-y: auto;
+}
+.janus-viewer-reports-title {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--xbox-green);
+    border-bottom: 1px solid rgba(135, 197, 64, 0.15);
+}
+.janus-report-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(135, 197, 64, 0.08);
+    border-left: 3px solid transparent;
+    transition: background 0.1s;
+}
+.janus-report-item:hover {
+    background: rgba(135, 197, 64, 0.06);
+}
+.janus-report-item.active {
+    background: rgba(135, 197, 64, 0.12);
+    border-left-color: var(--xbox-green);
+}
+.janus-report-item.janus-change-yes {
+    border-left-color: var(--xbox-orange);
+}
+.janus-report-item.janus-change-yes.active {
+    border-left-color: var(--xbox-orange);
+    background: rgba(255, 152, 0, 0.08);
+}
+.janus-report-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--xbox-text);
+}
+.janus-report-meta {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--xbox-text-dim);
+    margin-top: 2px;
+}
+.janus-viewer-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.janus-viewer-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(135, 197, 64, 0.12);
+    background: rgba(10, 15, 8, 0.6);
+}
+.janus-chip {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    border: 1px solid var(--xbox-panel-border);
+    background: rgba(0, 0, 0, 0.4);
+    color: var(--xbox-text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.janus-chip:hover {
+    border-color: var(--xbox-green);
+    color: var(--xbox-text);
+}
+.janus-chip.active {
+    border-color: var(--xbox-green);
+    background: rgba(135, 197, 64, 0.18);
+    color: var(--xbox-green-bright);
+}
+.janus-chip-cva {
+    border-color: rgba(255, 152, 0, 0.4);
+}
+.janus-chip-cva.active {
+    border-color: var(--xbox-orange);
+    background: rgba(255, 152, 0, 0.15);
+    color: var(--xbox-orange);
+}
+.janus-viewer-stage {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    background:
+        repeating-conic-gradient(rgba(135, 197, 64, 0.03) 0% 25%, transparent 0% 50%) 50% / 24px 24px,
+        var(--xbox-darker);
+}
+.janus-viewer-stage img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.janus-viewer-stage-msg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--xbox-text-dim);
+    background: var(--xbox-panel);
+    border: 1px solid var(--xbox-panel-border);
+    padding: 10px 20px;
+    max-width: 70%;
+    text-align: center;
+}
+.janus-viewer-cva-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-top: 1px solid rgba(135, 197, 64, 0.12);
+    background: rgba(10, 15, 8, 0.6);
+    font-size: 11px;
+}
+.janus-viewer-cva-controls label {
+    color: var(--xbox-text-dim);
+    font-weight: 600;
+    letter-spacing: 1px;
+    font-size: 10px;
+    white-space: nowrap;
+}
+.janus-viewer-cva-controls .xbox-range {
+    max-width: 160px;
+}
+.janus-viewer-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-left: auto;
+}
+.janus-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--xbox-text-dim);
+}
+.janus-viewer-info {
+    max-height: 170px;
+    overflow-y: auto;
+    padding: 10px 14px;
+    border-top: 1px solid var(--xbox-panel-border);
+    background: var(--xbox-panel);
+}
+.janus-viewer-summary {
+    font-size: 12px;
+    color: var(--xbox-text);
+    line-height: 1.6;
+    white-space: pre-line;
+    margin-bottom: 6px;
 }
 
 /* ============================================

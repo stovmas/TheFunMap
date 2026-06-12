@@ -658,19 +658,60 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Data Source</label>
-                        <select id="janus-config-source" class="xbox-select">
-                            <option value="sentinel2">Sentinel-2 Optical</option>
-                            <option value="sentinel1">Sentinel-1 SAR</option>
-                            <option value="firms">NASA FIRMS (Fires)</option>
-                            <option value="conflict">Conflict Events</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Visualization / Filter</label>
-                        <select id="janus-config-viz" class="xbox-select">
-                            <option value="TRUE_COLOR">True Color RGB</option>
-                        </select>
+                        <label>Data Sources &amp; Layers</label>
+                        <div id="janus-config-sources" class="janus-config-sources">
+                            <div class="janus-src-block">
+                                <label class="xbox-check">
+                                    <input type="checkbox" class="janus-src-cb" value="sentinel2">
+                                    <span class="check-mark"></span>
+                                    SENTINEL-2 OPTICAL
+                                </label>
+                                <div class="janus-viz-group hidden" data-for="sentinel2">
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="sentinel2" value="TRUE_COLOR"><span class="check-mark"></span>True Color RGB</label>
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="sentinel2" value="FALSE_COLOR"><span class="check-mark"></span>False Color (Vegetation)</label>
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="sentinel2" value="NDVI"><span class="check-mark"></span>NDVI</label>
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="sentinel2" value="NDWI"><span class="check-mark"></span>NDWI</label>
+                                </div>
+                            </div>
+                            <div class="janus-src-block">
+                                <label class="xbox-check">
+                                    <input type="checkbox" class="janus-src-cb" value="sentinel1">
+                                    <span class="check-mark"></span>
+                                    SENTINEL-1 SAR
+                                </label>
+                                <div class="janus-viz-group hidden" data-for="sentinel1">
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="sentinel1" value="VV"><span class="check-mark"></span>VV Polarization</label>
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="sentinel1" value="VH"><span class="check-mark"></span>VH Polarization</label>
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="sentinel1" value="VV_VH"><span class="check-mark"></span>VV/VH Ratio</label>
+                                </div>
+                            </div>
+                            <div class="janus-src-block">
+                                <label class="xbox-check">
+                                    <input type="checkbox" class="janus-src-cb" value="firms">
+                                    <span class="check-mark"></span>
+                                    NASA FIRMS (FIRES)
+                                </label>
+                                <div class="janus-viz-group hidden" data-for="firms">
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="firms" value="VIIRS_SNPP_NRT"><span class="check-mark"></span>VIIRS SNPP</label>
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="firms" value="VIIRS_NOAA20_NRT"><span class="check-mark"></span>VIIRS NOAA-20</label>
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="firms" value="VIIRS_NOAA21_NRT"><span class="check-mark"></span>VIIRS NOAA-21</label>
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="firms" value="MODIS_NRT"><span class="check-mark"></span>MODIS</label>
+                                </div>
+                            </div>
+                            <div class="janus-src-block">
+                                <label class="xbox-check">
+                                    <input type="checkbox" class="janus-src-cb" value="conflict">
+                                    <span class="check-mark"></span>
+                                    CONFLICT EVENTS (UCDP)
+                                </label>
+                                <div class="janus-viz-group hidden" data-for="conflict">
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="conflict" value="1"><span class="check-mark"></span>State-based Conflict</label>
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="conflict" value="2"><span class="check-mark"></span>Non-state Conflict</label>
+                                    <label class="xbox-check sm"><input type="checkbox" class="janus-viz-cb" data-source="conflict" value="3"><span class="check-mark"></span>One-sided Violence</label>
+                                </div>
+                            </div>
+                        </div>
+                        <small>Enable any combination. Imagery sources save a snapshot per check; FIRMS and Conflict log period statistics.</small>
                     </div>
                     <div class="form-group" id="janus-config-cva-row">
                         <label class="xbox-check">
@@ -678,7 +719,7 @@
                             <span class="check-mark"></span>
                             INCLUDE CVA (CHANGE VECTOR ANALYSIS)
                         </label>
-                        <small>Produces a CVA change report per check, comparing before/after imagery.</small>
+                        <small>Each check compares the new image against the previous one and logs a change report. View it overlaid on the imagery in the LOG viewer.</small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -688,17 +729,34 @@
             </div>
         </div>
 
-        <!-- Janus Eye Changelog Dialog -->
-        <div id="janus-changelog-dialog" class="modal-overlay hidden">
-            <div class="modal xbox-modal wide">
-                <div class="modal-header">
-                    <span>CHANGELOG: <span id="janus-changelog-title"></span></span>
-                    <button class="xbox-btn xs close-modal" id="janus-changelog-close">&times;</button>
+        <!-- Janus Eye Report Viewer (full-screen) -->
+        <div id="janus-viewer" class="hidden">
+            <div class="janus-viewer-header">
+                <div class="janus-viewer-titles">
+                    <span class="janus-viewer-title">JANUS EYE &mdash; <span id="janus-viewer-zone"></span></span>
+                    <span id="janus-viewer-sub" class="janus-viewer-sub"></span>
                 </div>
-                <div class="modal-body">
-                    <div id="janus-changelog-body" class="janus-changelog-body">
-                        <div class="empty-state">No reports yet.</div>
+                <button id="janus-viewer-close" class="xbox-btn sm accent">CLOSE</button>
+            </div>
+            <div class="janus-viewer-body">
+                <div class="janus-viewer-reports">
+                    <div class="janus-viewer-reports-title">REPORTS</div>
+                    <div id="janus-viewer-report-list"></div>
+                </div>
+                <div class="janus-viewer-main">
+                    <div id="janus-viewer-chips" class="janus-viewer-chips"></div>
+                    <div id="janus-viewer-stage" class="janus-viewer-stage">
+                        <img id="janus-viewer-img-base" class="hidden" alt="Zone imagery">
+                        <img id="janus-viewer-img-cva" class="hidden" alt="CVA overlay">
+                        <div id="janus-viewer-stage-msg" class="janus-viewer-stage-msg">Select a report</div>
                     </div>
+                    <div id="janus-viewer-cva-controls" class="janus-viewer-cva-controls hidden">
+                        <label>CVA OPACITY</label>
+                        <input type="range" id="janus-viewer-cva-opacity" class="xbox-range sm" min="0" max="100" value="85">
+                        <span id="janus-viewer-cva-opacity-val" class="range-val">85%</span>
+                        <div id="janus-viewer-legend" class="janus-viewer-legend"></div>
+                    </div>
+                    <div id="janus-viewer-info" class="janus-viewer-info"></div>
                 </div>
             </div>
         </div>
