@@ -68,6 +68,11 @@ FunMap.UI = {
                     FunMap.Janus._cancelDraw();
                     return;
                 }
+                // Close Janus config properly so the pending drawn area is discarded
+                if (!document.getElementById('janus-config-dialog').classList.contains('hidden')) {
+                    FunMap.Janus._closeConfig();
+                    return;
+                }
                 // Deactivate measurement if active
                 if (this._measuringActive) {
                     this._deactivateMeasure();

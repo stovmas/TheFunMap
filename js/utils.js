@@ -188,6 +188,13 @@ FunMap.Utils = {
         return Math.max(min, Math.min(max, val));
     },
 
+    // Escape HTML special characters for safe interpolation
+    escapeHtml(str) {
+        return String(str ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[c]));
+    },
+
     // Create a colored circle icon for Leaflet markers
     circleIcon(color, size = 10) {
         return L.divIcon({
