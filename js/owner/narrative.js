@@ -17,71 +17,70 @@ FunMap.Owner.Narrative = {
             { month: 'long', year: 'numeric', timeZone: 'UTC' });
     },
 
-    /** Header line: "Henderson Farm — 212 acres, Macon County — June 2026" */
     headerLine(farm, assessment) {
         const county = farm.county ? `, ${farm.county} County` : '';
         return `${farm.name} — ${farm.acreage} acres${county} — ${this.monthName(assessment.month)}`;
     },
 
-    /** The verdict paragraph (1–2 sentences) */
+    /** Context clause: self direction, refined by neighbor when present. */
+    _contextClause(v, windowName) {
+        const T = FunMap.Owner.NarrativeTemplates;
+        if (v.pctVsSelf === null || v.pctVsSelf === undefined) return '';
+        const dir = v.pctVsSelf >= 103 ? 'ahead' : v.pctVsSelf >= 97 ? 'inline' : 'behind';
+        let clause = this._fill(T.selfLead, { dir: T.selfLeadDir[dir], window: windowName });
+
+        if (v.pctVsNeighbor !== null && v.pctVsNeighbor !== undefined) {
+            if (dir === 'behind') {
+                clause += v.pctVsNeighbor >= 95
+                    ? T.neighborContext.behindRegional       // field ≈ neighbors (both low)
+                    : T.neighborContext.behindFarmSpecific;  // neighbors doing better
+            } else if (dir === 'ahead' && v.pctVsNeighbor >= 108) {
+                clause += T.neighborContext.aheadOfNeighbors;
+            } else if (Math.abs(v.pctVsNeighbor - 100) <= 5) {
+                clause += T.neighborContext.onParNeighbors;
+            }
+        }
+        return clause;
+    },
+
     verdictText(assessment) {
         const T = FunMap.Owner.NarrativeTemplates;
         const v = assessment.verdict;
         const tier = v.tier;
-        if (tier === 'out_of_season' || tier === 'insufficient_data') {
+        if (['out_of_season', 'insufficient_data', 'limited_visibility'].includes(tier)) {
             return T.verdict[tier];
         }
-
         const m = parseInt(assessment.month.split('-')[1], 10);
-        const windowName = T.windowName[m];
+        const context = this._contextClause(v, T.windowName[m]);
 
-        let neighborClause = '', selfClause = '';
-        if (v.pctVsNeighbor !== null) {
-            neighborClause = this._fill(T.neighborClause, { pct: v.pctVsNeighbor });
-            if (v.pctVsSelf !== null) {
-                selfClause = this._fill(this._selfClauseTpl(v.pctVsSelf), { window: windowName });
-            }
-        } else if (v.pctVsSelf !== null) {
-            const dir = v.pctVsSelf >= 103 ? T.selfLeadDir.ahead
-                : v.pctVsSelf >= 97 ? T.selfLeadDir.inline : T.selfLeadDir.behind;
-            neighborClause = this._fill(T.selfLead, { dir: dir, window: windowName });
+        // Acknowledge flags under an otherwise-fine verdict.
+        if (v.acknowledgesFlags && T.verdictOverall[tier]) {
+            const fc = v.flagCount || 1;
+            const flagNod = fc === 1 ? T.flagNod.one : fc === 2 ? T.flagNod.few : T.flagNod.many;
+            return this._fill(T.verdictOverall[tier], { context, flagNod });
         }
-
-        return this._fill(T.verdict[tier], { neighborClause, selfClause });
+        return this._fill(T.verdict[tier], { context });
     },
 
-    _selfClauseTpl(pct) {
-        const T = FunMap.Owner.NarrativeTemplates;
-        if (pct >= 110) return T.selfClause.wellAhead;
-        if (pct >= 103) return T.selfClause.ahead;
-        if (pct >= 97) return T.selfClause.inline;
-        if (pct >= 90) return T.selfClause.slightlyBehind;
-        return T.selfClause.behind;
-    },
-
-    /** One sentence per flag */
     flagTexts(assessment) {
         const T = FunMap.Owner.NarrativeTemplates;
-        return assessment.flags.map(f => {
-            const span = this._spanPhrase(f.spanDays);
-            return this._fill(T.flag, {
-                acres: f.acres,
-                compass: f.compass,
-                obs: f.durationObs,
-                span: span,
-                cause: T.flagCause[f.causeHint] || T.flagCause.generic,
-                action: T.flagAction[f.severity] || T.flagAction.minor,
-            });
-        });
+        return assessment.flags.map(f => this._fill(T.flag, {
+            acres: f.acres,
+            compass: f.compass,
+            obs: f.passCount,
+            span: FunMap.Owner.Flags.durationPhrase(f.firstDate, f.lastDate),
+            cause: T.flagCause[f.causeKey] || T.flagCause.unclear,
+            action: T.flagAction[f.causeKey] || T.flagAction.unclear,
+        }));
     },
 
-    _spanPhrase(days) {
+    flagSummaryText(assessment) {
         const T = FunMap.Owner.NarrativeTemplates;
-        if (days >= 11) {
-            const weeks = Math.round(days / 7);
-            return weeks <= 1 ? T.spanWeeks.one : this._fill(T.spanWeeks.some, { n: weeks });
-        }
-        return this._fill(T.spanDays, { n: Math.max(days, 1) });
+        const s = assessment.flagSummary;
+        if (!s || !s.count) return '';
+        return this._fill(T.flagSummary, {
+            count: s.count, s: s.count === 1 ? '' : 's', acres: s.acres, region: s.region,
+        });
     },
 
     weatherText(assessment) {
@@ -90,25 +89,25 @@ FunMap.Owner.Narrative = {
         if (!w) return '';
         const partial = w.partialMonth ? T.weatherPartialNote : '';
         const dep = Math.abs(w.departureIn);
-        if (dep < 0.3) {
-            return this._fill(T.weatherNearNormal, { actual: w.monthPrecipIn, partial });
-        }
+        if (dep < 0.3) return this._fill(T.weatherNearNormal, { actual: w.monthPrecipIn, partial });
         return this._fill(T.weather, {
-            actual: w.monthPrecipIn,
-            partial: partial,
-            dep: dep.toFixed(1).replace(/\.0$/, ''),
-            dir: w.departureIn > 0 ? 'above' : 'below',
+            actual: w.monthPrecipIn, partial: partial,
+            dep: dep.toFixed(1).replace(/\.0$/, ''), dir: w.departureIn > 0 ? 'above' : 'below',
         });
     },
 
-    /** Full owner paragraph: verdict + flags (or all-clear) */
+    /** Full owner paragraph: verdict + flags + remainder summary (or all-clear) */
     bodyText(assessment) {
         const parts = [this.verdictText(assessment)];
+        if (assessment.verdict.tier === 'limited_visibility') return parts.join(' ');
+
         const flags = this.flagTexts(assessment);
         if (flags.length > 0) {
             const lead = flags.length === 1 ? 'One flag: ' : `${flags.length} flags: `;
             parts.push(lead + flags.join(' '));
-        } else if (assessment.verdict.tier !== 'insufficient_data') {
+            const summary = this.flagSummaryText(assessment);
+            if (summary) parts.push(summary);
+        } else if (!assessment.verdict.acknowledgesFlags) {
             parts.push(FunMap.Owner.NarrativeTemplates.noFlags);
         }
         return parts.join(' ');

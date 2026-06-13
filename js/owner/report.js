@@ -74,14 +74,15 @@ FunMap.Owner.Report = {
     <div style="display:flex;gap:16px;align-items:flex-start;">
       <div style="flex:1;font-size:13.5px;line-height:1.6;">
         ${flags.map((f, i) => `<div style="margin-bottom:6px;"><b>${i + 1}.</b> ${esc(f)}</div>`).join('')}
+        ${N.flagSummaryText(assessment) ? `<div style="margin-top:6px;font-style:italic;color:#777;">${esc(N.flagSummaryText(assessment))}</div>` : ''}
       </div>
       ${imageUrls.anomaly ? `<img src="${imageUrls.anomaly}"
           style="width:220px;border:1px solid #ccc;flex-shrink:0;">` : ''}
     </div>
-  </div>` : `
+  </div>` : (['limited_visibility', 'out_of_season', 'insufficient_data'].includes(assessment.verdict.tier) ? '' : `
   <div style="margin-top:14px;font-size:13.5px;color:#444;">
     ${esc(FunMap.Owner.NarrativeTemplates.noFlags)}
-  </div>`}
+  </div>`)}
 
   <!-- Spacer pushes footer down -->
   <div style="flex:1;"></div>

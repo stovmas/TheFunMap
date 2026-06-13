@@ -38,7 +38,42 @@ FunMap.Owner.Config = {
         slightlyBehindRatio: 0.85,
         behindRatio: 0.70,        // below this = significant concern
         outOfSeasonNdvi: 0.35,    // self-baseline below this => "between seasons"
+        // Coherence: flagged share of field caps the mean-based verdict
+        behindShare: 0.10,        // >=10% flagged => at best "Behind"
+        concernShare: 0.25,       // >=25% flagged => "Significant concern"
+        normalMaxShare: 0.05,     // "Normal" needs <5% flagged
     },
+
+    // ---- Flag floor / merge / cap / ranking ----
+    flags: {
+        minAcresFloor: 1.0,       // discard clusters below max(this, share floor)
+        minShareFloor: 0.005,     // ...or below 0.5% of field area
+        mergeGapPx: 3,            // clusters within ~30m merge into one flag
+        maxReported: 5,          // prose enumerates at most this many
+    },
+
+    // ---- Evidence-gated cause attribution ----
+    cause: {
+        dryDepartureIn: -1.0,     // <= this => "moisture stress"
+        wetDepartureIn: 1.5,      // >= this => "possible ponding"
+        earlySeasonMonths: [4, 5],// emergence-gap language allowed only here
+        earlySeasonMaxMean: 0.45, // ...and only when overall vegetation is low
+    },
+
+    // ---- Data-confidence guard ----
+    confidence: {
+        minScenes: 2,             // < this valid scenes => "limited visibility"
+    },
+
+    // ---- Neighbor benchmark (donut ring) ----
+    neighbor: {
+        innerGapM: 150,           // gap between field edge and ring inner radius
+        outerRingM: 3000,         // ring outer radius (~3 km)
+        minRingCroplandShare: 0.30, // need this much cropland in ring to compare
+    },
+
+    // ---- Pipeline identity (appendix) ----
+    version: 'owner-report/0.2.0',
 
     // ---- Weather ----
     weatherNormalYears: [1991, 2020],   // inclusive range for "normal"
