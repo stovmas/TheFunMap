@@ -40,7 +40,7 @@ FunMap.Owner.Model = {
         const farm = {
             id: FunMap.Utils.uid(),
             firmId: this.DEFAULT_FIRM_ID,
-            portfolioId: null,
+            portfolioId: 'main',
             name: opts.name || 'Unnamed Farm',
             nickname: opts.nickname || '',
             ownerDisplayName: opts.ownerDisplayName || '',

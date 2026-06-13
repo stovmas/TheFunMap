@@ -87,6 +87,10 @@ FunMap.UI = {
                     FunMap.Owner.UI.closeViewer();
                     return;
                 }
+                if (!document.getElementById('owner-dashboard').classList.contains('hidden')) {
+                    FunMap.Owner.Dashboard.close();
+                    return;
+                }
                 // Deactivate measurement if active
                 if (this._measuringActive) {
                     this._deactivateMeasure();

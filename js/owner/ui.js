@@ -24,6 +24,9 @@ FunMap.Owner.UI = {
         document.getElementById('owner-seed-moby').addEventListener('click', () => this._seedMoby());
         document.getElementById('owner-viewer-close').addEventListener('click', () => this.closeViewer());
 
+        await FunMap.Owner.Portfolio.ensureDefault();
+        FunMap.Owner.Dashboard.init();
+        FunMap.Owner.Scheduler.init();
         await this.refreshList();
     },
 
@@ -226,10 +229,12 @@ FunMap.Owner.UI = {
 
     _viewerUrls: null,
 
-    async openViewer(farmId) {
+    async openViewer(farmId, assessmentId) {
         const farm = await FunMap.Owner.Model.getFarm(farmId);
-        if (!farm || !farm.lastAssessmentId) return;
-        const assessment = await FunMap.Owner.Assessment.getAssessment(farm.lastAssessmentId);
+        if (!farm) return;
+        const useId = assessmentId || farm.lastAssessmentId;
+        if (!useId) return;
+        const assessment = await FunMap.Owner.Assessment.getAssessment(useId);
         const firm = await FunMap.Owner.Model.ensureDefaultFirm();
         if (!assessment) return;
 

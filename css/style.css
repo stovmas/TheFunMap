@@ -1965,6 +1965,74 @@ textarea.xbox-input {
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
 }
 
+/* Triage dashboard */
+#owner-dashboard {
+    position: fixed;
+    inset: 0;
+    z-index: 2600;
+    background: var(--xbox-black);
+    display: flex;
+    flex-direction: column;
+}
+.owner-dash-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.owner-dash-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+.owner-dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    color: var(--xbox-text);
+}
+.owner-dash-table th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--xbox-green);
+    border-bottom: 1px solid var(--xbox-panel-border);
+    padding: 6px 10px;
+}
+.owner-dash-table td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(135, 197, 64, 0.08);
+    vertical-align: middle;
+}
+.owner-dash-sub {
+    font-size: 11px;
+    color: var(--xbox-text-dim);
+}
+.owner-dash-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-family: var(--font-main);
+}
+.owner-dash-actions {
+    white-space: nowrap;
+}
+.owner-dash-actions .xbox-btn {
+    margin-left: 3px;
+}
+.owner-arch-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 12px 2px 0;
+    font-size: 12px;
+    color: var(--xbox-text-dim);
+}
+
 /* ============================================
    RESPONSIVE
    ============================================ */

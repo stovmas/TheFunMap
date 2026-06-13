@@ -320,6 +320,7 @@
                                     <button id="owner-import" class="xbox-btn xs" title="Import GeoJSON parcels">IMPORT</button>
                                     <button id="owner-seed-moby" class="xbox-btn xs ghost" title="Load the Moby Road test parcel">SEED</button>
                                 </div>
+                                <button id="owner-dashboard-btn" class="xbox-btn sm full-width" title="Portfolio triage dashboard">TRIAGE DASHBOARD</button>
                                 <input type="file" id="owner-import-file" accept=".json,.geojson" class="hidden">
                                 <div id="owner-farm-list" class="janus-monitor-list">
                                     <div class="empty-state">No farms yet.</div>
@@ -780,6 +781,27 @@
             </div>
         </div>
 
+        <!-- Owner Report Triage Dashboard (full-screen) -->
+        <div id="owner-dashboard" class="hidden">
+            <div class="janus-viewer-header">
+                <div class="janus-viewer-titles">
+                    <span class="janus-viewer-title">TRIAGE &mdash; <span id="owner-dash-title"></span></span>
+                </div>
+                <div class="owner-dash-controls">
+                    <label class="xbox-check sm" title="Auto-run monthly while the app is open">
+                        <input type="checkbox" id="owner-dash-schedule">
+                        <span class="check-mark"></span>
+                        MONTHLY AUTO-RUN, DAY
+                    </label>
+                    <input type="number" id="owner-dash-schedule-day" class="xbox-input sm" min="1" max="28" value="1" style="width:48px;">
+                    <button id="owner-dash-run" class="xbox-btn sm">RUN ALL NOW</button>
+                    <button id="owner-dash-export" class="xbox-btn sm" title="Zip this month's PDFs">EXPORT ZIP</button>
+                    <button id="owner-dash-close" class="xbox-btn sm accent">CLOSE</button>
+                </div>
+            </div>
+            <div id="owner-dash-body" class="owner-dash-scroll"></div>
+        </div>
+
         <!-- Owner Report Viewer (full-screen) -->
         <div id="owner-viewer" class="hidden">
             <div class="janus-viewer-header">
@@ -813,6 +835,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/calendar.js"></script>
@@ -836,6 +859,10 @@
     <script src="js/owner/narrative-templates.js"></script>
     <script src="js/owner/narrative.js"></script>
     <script src="js/owner/report.js"></script>
+    <script src="js/owner/portfolio.js"></script>
+    <script src="js/owner/scheduler.js"></script>
+    <script src="js/owner/export.js"></script>
+    <script src="js/owner/dashboard.js"></script>
     <script src="js/owner/ui.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/main.js"></script>

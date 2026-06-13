@@ -4,8 +4,8 @@ import assert from 'assert';
 
 global.FunMap = { Utils: { uid: () => 't' + Math.random().toString(36).slice(2, 8), escapeHtml: s => String(s) } };
 const load = f => (0, eval)(readFileSync(new URL('../js/owner/' + f, import.meta.url), 'utf8'));
-['config.js', 'geometry.js', 'baselines.js', 'anomaly.js', 'narrative-templates.js', 'narrative.js', 'importer.js']
-    .forEach(load);
+['config.js', 'geometry.js', 'baselines.js', 'anomaly.js', 'narrative-templates.js', 'narrative.js',
+ 'importer.js', 'dashboard.js'].forEach(load);
 
 const { Geometry: G, Baselines: B, Anomaly: A, Narrative: N, Importer: I, Config: C } = FunMap.Owner;
 let passed = 0;
@@ -112,5 +112,21 @@ ok(I.parseGeoJSON(JSON.stringify({ type: 'Polygon', coordinates: [[[0, 0], [1, 0
     'bare Polygon accepted');
 assert.throws(() => I.parseGeoJSON('{"type":"Point"}'), /No polygon|Expected/, '');
 ok(true, 'non-polygon rejected');
+
+// ---- Dashboard triage ranking + sparkline (pure) ----
+console.log('dashboard:');
+const D = FunMap.Owner.Dashboard;
+const mkA = (tier, flags) => ({ verdict: { tier }, flags });
+const flagged = mkA('normal', [{ severity: 'moderate' }]);
+const behind = mkA('behind', []);
+const healthy = mkA('normal', []);
+ok(D.severityScore(flagged) > D.severityScore(behind), 'any flag outranks a behind verdict');
+ok(D.severityScore(behind) > D.severityScore(healthy), 'behind outranks healthy');
+ok(D.severityScore(null) < D.severityScore(healthy), 'no report sorts last');
+ok(D.severityScore(mkA('normal', [{ severity: 'severe' }])) >
+   D.severityScore(mkA('significant_concern', [{ severity: 'minor' }])), 'severe flag dominates');
+const svg = D.sparklineSvg([{ v: 0.3 }, { v: 0.5 }, { v: 0.7 }]);
+ok(svg.includes('<svg') && svg.includes('polyline'), 'sparkline renders SVG');
+ok(D.sparklineSvg([{ v: 0.5 }]).includes('no data'), 'single point -> no data');
 
 console.log(`\nALL ${passed} TESTS PASSED`);
