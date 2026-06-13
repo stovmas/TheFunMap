@@ -61,29 +61,31 @@ FunMap.Owner.Assessment = {
         const windowTo = FunMap.Utils.toISODate(new Date(Math.min(Date.now(), new Date(y, m, 0).getTime())));
         const windowCenter = `${monthStr}-15`;
 
-        // 2. Verdict inputs
-        const current = B.currentValue(valid, windowFrom, windowTo, 3);
-        const selfBase = B.selfBaseline(valid, windowCenter, 20, y);
-
-        say('Benchmarking against nearby fields...');
-        let neighbor = null;
-        if (farm.comparisonRings && farm.comparisonRings.length > 0) {
-            const rowsPerComp = [];
-            for (const ring of farm.comparisonRings) {
-                try {
-                    rowsPerComp.push(await FunMap.Owner.S2.fetchTimeseries(ring, windowFrom, windowTo));
-                } catch (e) { /* skip failing comp */ }
-            }
-            neighbor = B.neighborBenchmark(rowsPerComp, windowFrom, windowTo, C.minValidFraction);
-        }
-
-        // 3. Sub-field anomalies over the most recent valid dates
-        say('Scanning for sub-field anomalies...');
+        // 2. Analysis grid + land-cover gate (§7)
         const bbox = G.bbox(farm.ring, C.rasterPadDeg);
         const width = Math.max(16, Math.round((bbox[2] - bbox[0]) / C.rasterResDeg));
         const height = Math.max(16, Math.round((bbox[3] - bbox[1]) / C.rasterResDeg));
-        const mask = G.rasterMask(farm.bufferedRing, bbox, width, height);
+        const boundaryMask = G.rasterMask(farm.bufferedRing, bbox, width, height);
 
+        const lc = await FunMap.Owner.LandCover.ensure(
+            farm, { bbox, width, height, mask: boundaryMask }, say);
+        if (lc.blocked) {
+            throw new Error(`Boundary appears to be only ${Math.round(lc.croplandShare * 100)}% cropland — ` +
+                'retrace it (REDRAW) or confirm the land cover (LAND OK) before running a report.');
+        }
+        const mask = lc.maskApplied
+            ? boundaryMask.map((v, i) => v && lc.cropMask[i] ? 1 : 0)
+            : boundaryMask;
+        let analyzedPixels = 0;
+        for (let i = 0; i < mask.length; i++) if (mask[i]) analyzedPixels++;
+        const analyzedAcres = Math.round(analyzedPixels * G.pixelAreaM2(bbox, width, height) * 0.0247105) / 100;
+
+        // 3. Verdict inputs (self history: full buffered polygon, consistent across years)
+        const current = B.currentValue(valid, windowFrom, windowTo, 3);
+        const selfBase = B.selfBaseline(valid, windowCenter, 20, y);
+
+        // 4. Sub-field anomalies over the most recent valid dates
+        say('Scanning for sub-field anomalies...');
         const anomalyDates = valid.slice(-C.anomaly.analysisDates).map(r => r.date);
         const rasters = [];
         for (const date of anomalyDates) {
@@ -100,78 +102,84 @@ FunMap.Owner.Assessment = {
                 Object.assign({}, C.anomaly, C.flags))
             : { flags: [], overlayFlags: [], summary: '', flaggedAcres: 0, flaggedShare: 0 };
 
-        // 4. Weather context
+        // 5. Neighbor benchmark (§5): manual comps first, else cropland ring
+        say('Benchmarking against nearby fields...');
+        let neighbor = null, neighborSource = null, neighborFieldMean = null;
+        if (farm.comparisonRings && farm.comparisonRings.length > 0) {
+            const rowsPerComp = [];
+            for (const ring of farm.comparisonRings) {
+                try {
+                    rowsPerComp.push(await FunMap.Owner.S2.fetchTimeseries(ring, windowFrom, windowTo));
+                } catch (e) { /* skip failing comp */ }
+            }
+            neighbor = B.neighborBenchmark(rowsPerComp, windowFrom, windowTo, C.minValidFraction);
+            if (neighbor) neighborSource = 'manual-comps';
+        } else if (rasters.length > 0) {
+            try {
+                const pairRasters = rasters.filter(r => r.date >= windowFrom && r.date <= windowTo).slice(-3);
+                const ringBench = await FunMap.Owner.Neighbor.benchmark(
+                    farm, pairRasters.length ? pairRasters : rasters.slice(-3), mask, say);
+                if (ringBench) {
+                    neighbor = { mean: ringBench.mean, nSamples: ringBench.nSamples };
+                    neighborSource = 'ring-proxy';
+                    neighborFieldMean = ringBench.fieldMean;   // same-scene pairing
+                }
+            } catch (e) { /* omit silently per spec */ }
+        }
+
+        // 6. Weather context
         say('Adding weather context...');
         let weather = null;
         try { weather = await FunMap.Owner.Weather.monthContext(farm, monthStr); }
         catch (e) { /* report degrades gracefully without weather */ }
 
-        // 5. Report images
+        // 7. Report images
         say('Rendering report imagery...');
-        const images = { heroKey: null, anomalyKey: null };
         const assessmentId = FunMap.Utils.uid();
-        if (current) {
-            try {
-                const dims = this._heroDims(bbox);
-                const png = await FunMap.Owner.S2.fetchRenderPng(bbox, current.latestDate, dims.w, dims.h);
-                const hero = await FunMap.Owner.Render.heroImage(png, farm.ring, bbox);
-                images.heroKey = `img|${assessmentId}|hero`;
-                await FunMap.Owner.DB.put('images', hero, images.heroKey);
-            } catch (e) { /* hero optional */ }
-        }
-        if (rasters.length > 0) {
-            try {
-                const latest = rasters[rasters.length - 1];
-                const overlay = await FunMap.Owner.Render.anomalyOverlay(
-                    { data: latest.data, width, height, bbox }, mask, flagResult.overlayFlags, farm.ring);
-                images.anomalyKey = `img|${assessmentId}|anomaly`;
-                await FunMap.Owner.DB.put('images', overlay, images.anomalyKey);
-            } catch (e) { /* overlay optional */ }
-        }
+        const latestRaster = rasters.length
+            ? { data: rasters[rasters.length - 1].data, width, height, bbox } : null;
+        const images = await FunMap.Owner.Render.buildReportImages(
+            farm, bbox, current ? current.latestDate : null,
+            latestRaster, mask, flagResult.overlayFlags, assessmentId);
 
-        // 6. Verdict (single source of truth) + evidence-gated cause
+        // 8. Verdict (single source of truth) + evidence-gated cause
         const windowValid = valid.filter(r => r.date >= windowFrom && r.date <= windowTo);
         const meanTier = B.verdictTier(current ? current.mean : null, selfBase, C.verdict);
-        const monthIdx = parseInt(monthStr.split('-')[1], 10);
-        const causeKey = FunMap.Owner.Cause.assign(
-            weather, monthIdx, current ? current.mean : null, C.cause);
-
+        const causeKey = FunMap.Owner.Cause.assign(weather, m, current ? current.mean : null, C.cause);
         const decided = FunMap.Owner.Verdict.derive({
-            meanTier: meanTier,
-            flaggedShare: flagResult.flaggedShare,
-            validScenes: windowValid.length,
-            hasFlags: flagResult.flags.length > 0,
+            meanTier, flaggedShare: flagResult.flaggedShare,
+            validScenes: windowValid.length, hasFlags: flagResult.flags.length > 0,
         }, C);
-
-        // Limited visibility: assert no flags.
         const flagsOut = decided.tier === 'limited_visibility'
             ? [] : flagResult.flags.map(f => Object.assign({}, f, { causeKey }));
-        const summaryOut = decided.tier === 'limited_visibility' ? null : flagResult.summary;
 
-        // 7. Assemble the FarmAssessment contract
+        const round3 = v => Math.round(v * 1000) / 1000;
+        const fieldForNeighbor = neighborFieldMean !== null
+            ? neighborFieldMean : (current ? current.mean : null);
+
         const assessment = {
-            id: assessmentId,
-            farmId: farm.id,
-            firmId: farm.firmId,
-            month: monthStr,
-            generatedAt: new Date().toISOString(),
-            version: C.version,
+            id: assessmentId, farmId: farm.id, firmId: farm.firmId,
+            month: monthStr, generatedAt: new Date().toISOString(), version: C.version,
             verdict: {
-                tier: decided.tier,
-                meanTier: meanTier,
-                capped: decided.capped,
+                tier: decided.tier, meanTier, capped: decided.capped,
                 acknowledgesFlags: decided.acknowledgesFlags,
                 flagCount: flagsOut.length,
                 flaggedAcres: flagResult.flaggedAcres,
-                flaggedShare: Math.round(flagResult.flaggedShare * 1000) / 1000,
+                flaggedShare: round3(flagResult.flaggedShare),
                 currentMean: current ? round3(current.mean) : null,
                 selfBaseline: selfBase ? {
                     mean: round3(selfBase.mean), std: round3(selfBase.std), years: selfBase.years,
                 } : null,
                 pctVsSelf: current && selfBase ? Math.round(current.mean / selfBase.mean * 100) : null,
                 neighborMean: neighbor ? round3(neighbor.mean) : null,
-                pctVsNeighbor: current && neighbor ? Math.round(current.mean / neighbor.mean * 100) : null,
+                pctVsNeighbor: neighbor && fieldForNeighbor !== null
+                    ? Math.round(fieldForNeighbor / neighbor.mean * 100) : null,
                 neighborSamples: neighbor ? (neighbor.nSamples || neighbor.nComps || 0) : 0,
+            },
+            neighborSource: neighborSource,
+            landCover: {
+                source: lc.source, year: lc.year, croplandShare: lc.croplandShare,
+                maskApplied: lc.maskApplied, confirmed: !!farm.landCoverConfirmed,
             },
             observations: {
                 latestDate: current ? current.latestDate : null,
@@ -180,8 +188,11 @@ FunMap.Owner.Assessment = {
                 validScenesInWindow: windowValid.length,
                 totalValidDates: valid.length,
             },
+            scenesTable: B.sceneTable(allRows, windowFrom, windowTo, C.minValidFraction),
+            analyzedAcres: analyzedAcres,
+            analyzedPixels: analyzedPixels,
             flags: flagsOut,
-            flagSummary: summaryOut,
+            flagSummary: decided.tier === 'limited_visibility' ? null : flagResult.summary,
             weather: weather,
             images: images,
             sparkline: valid.slice(-24).map(r => ({ date: r.date, v: round3(r.ndviMean) })),
@@ -190,18 +201,7 @@ FunMap.Owner.Assessment = {
         await FunMap.Owner.DB.put('assessments', assessment);
         farm.lastAssessmentId = assessment.id;
         await FunMap.Owner.DB.put('farms', farm);
-
-        function round3(v) { return Math.round(v * 1000) / 1000; }
         return assessment;
-    },
-
-    _heroDims(bbox) {
-        const C = FunMap.Owner.Config;
-        const aspect = (bbox[2] - bbox[0]) * Math.cos((bbox[1] + bbox[3]) / 2 * Math.PI / 180) /
-            (bbox[3] - bbox[1]);
-        return aspect >= 1
-            ? { w: C.heroImageMaxEdge, h: Math.round(C.heroImageMaxEdge / aspect) }
-            : { w: Math.round(C.heroImageMaxEdge * aspect), h: C.heroImageMaxEdge };
     },
 
     async getAssessment(id) { return FunMap.Owner.DB.get('assessments', id); },

@@ -68,6 +68,53 @@ FunMap.Owner.Render = {
         return [180 - 150 * u, 190 - 60 * u, 70 - 30 * u];
     },
 
+    /** Hero + anomaly overlay for a report run; stores blobs, returns keys. */
+    async buildReportImages(farm, bbox, latestDate, latestRaster, mask, overlayFlags, assessmentId) {
+        const images = { heroKey: null, anomalyKey: null };
+        const C = FunMap.Owner.Config;
+        if (latestDate) {
+            try {
+                const aspect = (bbox[2] - bbox[0]) * Math.cos((bbox[1] + bbox[3]) / 2 * Math.PI / 180) /
+                    (bbox[3] - bbox[1]);
+                const w = aspect >= 1 ? C.heroImageMaxEdge : Math.round(C.heroImageMaxEdge * aspect);
+                const h = aspect >= 1 ? Math.round(C.heroImageMaxEdge / aspect) : C.heroImageMaxEdge;
+                const png = await FunMap.Owner.S2.fetchRenderPng(bbox, latestDate, w, h);
+                const hero = await this.heroImage(png, farm.ring, bbox);
+                images.heroKey = `img|${assessmentId}|hero`;
+                await FunMap.Owner.DB.put('images', hero, images.heroKey);
+            } catch (e) { /* hero optional */ }
+        }
+        if (latestRaster) {
+            try {
+                const overlay = await this.anomalyOverlay(latestRaster, mask, overlayFlags, farm.ring);
+                images.anomalyKey = `img|${assessmentId}|anomaly`;
+                await FunMap.Owner.DB.put('images', overlay, images.anomalyKey);
+            } catch (e) { /* overlay optional */ }
+        }
+        return images;
+    },
+
+    /** Land-cover mask preview: green = cropland, grey = excluded. */
+    async landCoverPreview(cropMask, boundaryMask, width, height, bbox, ring) {
+        const scale = Math.max(3, Math.round(560 / Math.max(width, height)));
+        const canvas = document.createElement('canvas');
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#15201a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        for (let r = 0; r < height; r++) {
+            for (let c = 0; c < width; c++) {
+                const i = r * width + c;
+                if (!boundaryMask[i]) continue;
+                ctx.fillStyle = cropMask[i] ? '#3f9b4f' : '#6e6e6e';
+                ctx.fillRect(c * scale, r * scale, scale, scale);
+            }
+        }
+        this._strokeRing(ctx, ring, bbox, canvas.width, canvas.height, '#ffd84d', 2);
+        return this._toBlob(canvas);
+    },
+
     /**
      * Anomaly overlay: upscaled raster heatmap.
      * raster: { data, width, height, bbox }; flags from Anomaly.detect.

@@ -117,19 +117,28 @@ FunMap.Owner.Report = {
 
     revoke(urls) { (urls._created || []).forEach(u => URL.revokeObjectURL(u)); },
 
-    /** Render the report to a PDF blob, store it, and return it. */
+    /** Owner page + "Check its work" appendix (page 2). */
+    buildFullHTML(farm, firm, assessment, imageUrls) {
+        const accent = firm.accentColor || '#2e6e3e';
+        return this.buildHTML(farm, firm, assessment, imageUrls) +
+            '<div class="html2pdf__page-break"></div>' +
+            FunMap.Owner.Appendix.buildHTML(farm, assessment, accent);
+    },
+
+    /** Render the two-page report to a PDF blob, store it, and return it. */
     async toPdfBlob(farm, firm, assessment) {
         const urls = await this.imageUrls(firm, assessment);
         const holder = document.createElement('div');
         holder.style.cssText = 'position:fixed;left:-2000px;top:0;width:816px;background:#fff;z-index:-1;';
-        holder.innerHTML = this.buildHTML(farm, firm, assessment, urls);
+        holder.innerHTML = this.buildFullHTML(farm, firm, assessment, urls);
         document.body.appendChild(holder);
         try {
-            const blob = await html2pdf().from(holder.firstElementChild).set({
+            const blob = await html2pdf().from(holder).set({
                 margin: 0,
                 image: { type: 'jpeg', quality: 0.92 },
                 html2canvas: { scale: 2, useCORS: true, logging: false },
                 jsPDF: { unit: 'px', format: [816, 1056], hotfixes: ['px_scaling'] },
+                pagebreak: { mode: ['css', 'legacy'] },
             }).outputPdf('blob');
             await FunMap.Owner.DB.put('reports', blob, 'pdf|' + assessment.id);
             return blob;

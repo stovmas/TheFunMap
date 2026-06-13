@@ -87,10 +87,13 @@ FunMap.Owner.Flags = {
         }
 
         // Strip pixels from the prose flags (overlay already rendered separately)
+        // Rank components persisted so re-ranking is a config change, not a recompute.
         const flags = top.map(c => ({
             id: c.id, acres: c.acres, compass: c.compass, severity: c.severity,
             meanZ: c.meanZ, passCount: c.passCount, persistence: c.persistence,
             firstDate: c.firstDate, lastDate: c.lastDate, causeKey: null,
+            rank: Math.round(c.rank * 100) / 100,
+            rankComponents: { acres: Math.round(c.rawAcres * 100) / 100, depth: c.meanZ, passes: c.passCount },
         }));
 
         return {

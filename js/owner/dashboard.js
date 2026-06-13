@@ -77,9 +77,19 @@ FunMap.Owner.Dashboard = {
             const tier = a ? a.verdict.tier : null;
             const flagsTxt = a && a.flags.length
                 ? `${a.flags.length} (${a.flags.reduce((s, x) => s + x.acres, 0).toFixed(1)} ac)` : '—';
+            const lc = f.landCover;
+            const blocked = lc && lc.blocked && !f.landCoverConfirmed;
+            const lcSub = lc ? ` · ${Math.round(lc.croplandShare * 100)}% crop` +
+                (f.landCoverConfirmed ? ' (confirmed)' : lc.maskApplied ? ' (masked)' : '') : '';
+            const covSub = a && a.observations && a.observations.validScenesInWindow !== undefined
+                ? ` · ${a.observations.validScenesInWindow} scenes` : '';
+            const verdictCell = blocked
+                ? '<span class="owner-dash-badge" style="background:#c62828">BLOCKED — RETRACE BOUNDARY</span>'
+                : tier ? `<span class="owner-dash-badge" style="background:${N.tierColor(tier)}">${esc(N.tierLabel(tier))}</span>`
+                : '<span class="owner-dash-sub">no report</span>';
             return `<tr data-farm="${f.id}">
-                <td><b>${esc(f.name)}</b><br><span class="owner-dash-sub">${f.acreage} ac · ${esc(f.county || '?')}${f.cropType ? ' · ' + esc(f.cropType) : ''}</span></td>
-                <td>${tier ? `<span class="owner-dash-badge" style="background:${N.tierColor(tier)}">${esc(N.tierLabel(tier))}</span>` : '<span class="owner-dash-sub">no report</span>'}</td>
+                <td><b>${esc(f.name)}</b><br><span class="owner-dash-sub">${f.acreage} ac · ${esc(f.county || '?')}${f.cropType ? ' · ' + esc(f.cropType) : ''}${lcSub}${covSub}</span></td>
+                <td>${verdictCell}</td>
                 <td style="color:${a && a.flags.length ? '#d2691e' : '#888'};font-weight:${a && a.flags.length ? '700' : '400'}">${flagsTxt}</td>
                 <td>${this.sparklineSvg(a ? a.sparkline : null)}</td>
                 <td class="owner-dash-sub">${a ? FunMap.Utils.formatDate(a.generatedAt) : '—'}</td>

@@ -38,26 +38,39 @@ FunMap.Owner.UI = {
         if (farms.length === 0) {
             list.innerHTML = '<div class="empty-state">No farms yet. Draw, import, or load the seed parcel.</div>';
         } else {
-            list.innerHTML = farms.map(f => `
+            list.innerHTML = farms.map(f => {
+                const lc = f.landCover;
+                const blocked = lc && lc.blocked && !f.landCoverConfirmed;
+                const warn = lc && lc.maskApplied && !f.landCoverConfirmed;
+                const lcBadge = blocked
+                    ? ' <span class="janus-waiting">BLOCKED — RETRACE</span>'
+                    : warn ? ` <span class="janus-waiting">${Math.round(lc.croplandShare * 100)}% CROP — MASKED</span>` : '';
+                const lcMeta = lc ? `<span>|</span><span>${Math.round(lc.croplandShare * 100)}% crop${f.landCoverConfirmed ? ' (confirmed)' : ''}</span>` : '';
+                const landBtns = (blocked || warn)
+                    ? `<button class="xbox-btn xs o-mask" data-id="${f.id}" title="View land-cover mask">MASK</button>
+                       <button class="xbox-btn xs ghost o-landok" data-id="${f.id}" title="Confirm boundary land cover">LAND OK</button>` : '';
+                return `
                 <div class="janus-monitor-item" data-id="${f.id}">
                     <div class="janus-monitor-header">
-                        <span class="janus-monitor-name">${esc(f.name)}${f.isDraft ? ' <span class="janus-waiting">DRAFT</span>' : ''}</span>
+                        <span class="janus-monitor-name">${esc(f.name)}${f.isDraft ? ' <span class="janus-waiting">DRAFT</span>' : ''}${lcBadge}</span>
                         <span class="janus-monitor-badge">${f.acreage} AC</span>
                     </div>
                     <div class="janus-monitor-meta">
                         <span>${esc(f.county || '?')}${f.state ? ', ' + esc(f.state) : ''}</span>
                         <span>|</span><span>${esc(f.cropType || 'crop?')}</span>
-                        <span>|</span><span>${f.comparisonRings.length} comps</span>
+                        <span>|</span><span>${f.comparisonRings.length} comps</span>${lcMeta}
                     </div>
                     <div class="janus-monitor-actions">
                         <button class="xbox-btn xs o-run" data-id="${f.id}">RUN REPORT</button>
                         <button class="xbox-btn xs o-view" data-id="${f.id}" ${f.lastAssessmentId ? '' : 'disabled'}>VIEW</button>
                         <button class="xbox-btn xs o-comp" data-id="${f.id}" title="Draw a comparison polygon on a nearby field">+COMP</button>
                         <button class="xbox-btn xs ghost o-redraw" data-id="${f.id}" title="Redraw boundary">REDRAW</button>
+                        ${landBtns}
                         <button class="xbox-btn xs o-fly" data-id="${f.id}">FLY</button>
                         <button class="xbox-btn xs ghost accent o-del" data-id="${f.id}">DEL</button>
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
         }
 
         const wire = (cls, fn) => list.querySelectorAll(cls).forEach(b =>
@@ -66,6 +79,8 @@ FunMap.Owner.UI = {
         wire('.o-view', id => this.openViewer(id));
         wire('.o-comp', id => this._startDraw('comp', id));
         wire('.o-redraw', id => this._startDraw('redraw', id));
+        wire('.o-mask', id => this._showLandMask(id));
+        wire('.o-landok', id => this._confirmLand(id));
         wire('.o-fly', id => this._fly(id));
         wire('.o-del', id => this._delete(id));
 
@@ -225,6 +240,41 @@ FunMap.Owner.UI = {
         }
     },
 
+    // ---- Land cover (§9) ----
+
+    async _confirmLand(id) {
+        const farm = await FunMap.Owner.Model.getFarm(id);
+        if (!farm) return;
+        if (!confirm(`Confirm that "${farm.name}" is traced to the intended cropland/pasture boundary? ` +
+            'The report appendix will state "land cover confirmed by manager".')) return;
+        farm.landCoverConfirmed = true;
+        await FunMap.Owner.DB.put('farms', farm);
+        FunMap.Utils.toast('Land cover confirmed. Reports will run without the cropland gate.', 'success');
+        await this.refreshList();
+    },
+
+    async _showLandMask(id) {
+        const farm = await FunMap.Owner.Model.getFarm(id);
+        if (!farm) return;
+        const blob = await FunMap.Owner.DB.get('images', `img|landcover|${id}`);
+        if (!blob) {
+            FunMap.Utils.toast('No mask preview yet — it is generated on the first report run.', 'info');
+            return;
+        }
+        if (this._viewerUrls) FunMap.Owner.Report.revoke(this._viewerUrls);
+        const url = URL.createObjectURL(blob);
+        this._viewerUrls = { _created: [url] };
+        const pct = farm.landCover ? Math.round(farm.landCover.croplandShare * 100) : '?';
+        document.getElementById('owner-viewer-content').innerHTML =
+            `<div style="text-align:center;padding:24px;color:#ccc;font-family:monospace;font-size:13px;">
+                <div style="margin-bottom:10px;">LAND-COVER MASK — ${FunMap.Utils.escapeHtml(farm.name)}<br>
+                green = cropland signature (${pct}%), grey = excluded. Retrace with REDRAW if this looks wrong.</div>
+                <img src="${url}" style="max-width:85%;border:1px solid #555;">
+            </div>`;
+        document.getElementById('owner-viewer-pdf').disabled = true;
+        document.getElementById('owner-viewer').classList.remove('hidden');
+    },
+
     // ---- Viewer ----
 
     _viewerUrls: null,
@@ -241,9 +291,10 @@ FunMap.Owner.UI = {
         if (this._viewerUrls) FunMap.Owner.Report.revoke(this._viewerUrls);
         this._viewerUrls = await FunMap.Owner.Report.imageUrls(firm, assessment);
         document.getElementById('owner-viewer-content').innerHTML =
-            FunMap.Owner.Report.buildHTML(farm, firm, assessment, this._viewerUrls);
+            FunMap.Owner.Report.buildFullHTML(farm, firm, assessment, this._viewerUrls);
 
         const pdfBtn = document.getElementById('owner-viewer-pdf');
+        pdfBtn.disabled = false;
         pdfBtn.onclick = async () => {
             pdfBtn.disabled = true;
             try {

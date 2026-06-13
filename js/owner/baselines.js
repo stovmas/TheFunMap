@@ -97,6 +97,19 @@ FunMap.Owner.Baselines = {
         };
     },
 
+    /** Audit table of every scene in the window: used / excluded + reason */
+    sceneTable(allRows, fromDate, toDate, minValidFraction) {
+        return allRows
+            .filter(r => r.date >= fromDate && r.date <= toDate)
+            .map(r => ({
+                date: r.date,
+                validPct: Math.round((r.validFraction || 0) * 100),
+                used: r.validFraction >= minValidFraction,
+                reason: r.validFraction >= minValidFraction ? ''
+                    : `clouds (<${Math.round(minValidFraction * 100)}% valid)`,
+            }));
+    },
+
     /** Verdict tier from ratios; null baseline pieces degrade gracefully */
     verdictTier(currentMean, selfBase, cfg) {
         if (selfBase && selfBase.mean < cfg.outOfSeasonNdvi) return 'out_of_season';

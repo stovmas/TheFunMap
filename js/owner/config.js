@@ -46,10 +46,27 @@ FunMap.Owner.Config = {
 
     // ---- Flag floor / merge / cap / ranking ----
     flags: {
-        minAcresFloor: 1.0,       // discard clusters below max(this, share floor)
+        minAcresFloor: 0.5,       // discard clusters below max(this, share floor)
         minShareFloor: 0.005,     // ...or below 0.5% of field area
         mergeGapPx: 3,            // clusters within ~30m merge into one flag
         maxReported: 5,          // prose enumerates at most this many
+    },
+
+    // ---- Land cover gate (§7): CDL when reachable, temporal proxy fallback ----
+    landcover: {
+        maskShare: 0.80,          // below this: analysis restricted to cropland px
+        blockShare: 0.40,         // below this: block report, ask for retrace
+        // Temporal-signature proxy: cropland = seasonal amplitude AND an
+        // in-season bare-soil event (deciduous forest has amplitude but its
+        // canopy never reads bare in season; crops get tilled/harvested).
+        amplitudeMin: 0.30,
+        bareSoilNdvi: 0.35,
+        bareSoilMonths: [4, 10],  // April..October inclusive
+        proxyDates: 12,           // historical rasters sampled for the signature
+        cdlTimeoutMs: 8000,
+        // NASS CDL cultivated-crop category code ranges
+        cdlCropRanges: [[1, 61], [66, 80], [195, 255]],
+        conusBbox: [-125, 24, -66, 50],
     },
 
     // ---- Evidence-gated cause attribution ----
@@ -65,11 +82,13 @@ FunMap.Owner.Config = {
         minScenes: 2,             // < this valid scenes => "limited visibility"
     },
 
-    // ---- Neighbor benchmark (donut ring) ----
+    // ---- Neighbor benchmark (donut ring, cropland-masked) ----
     neighbor: {
         innerGapM: 150,           // gap between field edge and ring inner radius
         outerRingM: 3000,         // ring outer radius (~3 km)
-        minRingCroplandShare: 0.30, // need this much cropland in ring to compare
+        minRingCroplandShare: 0.30, // sufficiency gate on the ring
+        minMaskedPixels: 500,     // omit comparison below this masked sample
+        ringResDeg: 0.0003,       // ~30m ring grid (cost control)
     },
 
     // ---- Pipeline identity (appendix) ----
