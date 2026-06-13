@@ -60,6 +60,14 @@
             FunMap.Janus.init();
             FunMap.UI.init();
 
+            // Owner Report product surface — isolated so a failure here
+            // never breaks the core map features.
+            try {
+                FunMap.Owner.UI.init();
+            } catch (ownerErr) {
+                console.error('Owner Report init error:', ownerErr);
+            }
+
             // Set data timestamp
             document.getElementById('data-timestamp').textContent =
                 new Date().toLocaleString('en-US', {

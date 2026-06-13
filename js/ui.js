@@ -78,6 +78,15 @@ FunMap.UI = {
                     FunMap.Janus._closeViewer();
                     return;
                 }
+                // Owner Report: cancel drawing / close viewer
+                if (FunMap.Owner && FunMap.Owner.UI && FunMap.Owner.UI.drawing) {
+                    FunMap.Owner.UI._cancelDraw();
+                    return;
+                }
+                if (!document.getElementById('owner-viewer').classList.contains('hidden')) {
+                    FunMap.Owner.UI.closeViewer();
+                    return;
+                }
                 // Deactivate measurement if active
                 if (this._measuringActive) {
                     this._deactivateMeasure();

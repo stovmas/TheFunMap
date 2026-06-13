@@ -1946,6 +1946,26 @@ textarea.xbox-input {
 }
 
 /* ============================================
+   OWNER REPORT
+   ============================================ */
+#owner-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 2600;
+    background: #2a2a2a;
+    display: flex;
+    flex-direction: column;
+}
+.owner-viewer-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 12px;
+}
+#owner-viewer-content .or-page {
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 @media (max-width: 768px) {

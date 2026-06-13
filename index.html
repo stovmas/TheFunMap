@@ -308,6 +308,25 @@
                             </div>
                         </div>
 
+                        <!-- Owner Report -->
+                        <div class="layer-group janus-layer-group">
+                            <div class="layer-group-title">
+                                <span class="janus-title-text">OWNER REPORT</span>
+                                <span class="zoom-badge" title="Farm condition reports">FARM</span>
+                            </div>
+                            <div class="layer-options">
+                                <div class="janus-draw-tools">
+                                    <button id="owner-draw-farm" class="xbox-btn xs" title="Draw a farm boundary">DRAW FARM</button>
+                                    <button id="owner-import" class="xbox-btn xs" title="Import GeoJSON parcels">IMPORT</button>
+                                    <button id="owner-seed-moby" class="xbox-btn xs ghost" title="Load the Moby Road test parcel">SEED</button>
+                                </div>
+                                <input type="file" id="owner-import-file" accept=".json,.geojson" class="hidden">
+                                <div id="owner-farm-list" class="janus-monitor-list">
+                                    <div class="empty-state">No farms yet.</div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- User Pins -->
                         <div class="layer-group">
                             <div class="layer-group-title">
@@ -761,6 +780,22 @@
             </div>
         </div>
 
+        <!-- Owner Report Viewer (full-screen) -->
+        <div id="owner-viewer" class="hidden">
+            <div class="janus-viewer-header">
+                <div class="janus-viewer-titles">
+                    <span class="janus-viewer-title">OWNER REPORT</span>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button id="owner-viewer-pdf" class="xbox-btn sm">DOWNLOAD PDF</button>
+                    <button id="owner-viewer-close" class="xbox-btn sm accent">CLOSE</button>
+                </div>
+            </div>
+            <div id="owner-viewer-scroll" class="owner-viewer-scroll">
+                <div id="owner-viewer-content"></div>
+            </div>
+        </div>
+
         <!-- Loading overlay -->
         <div id="loading-overlay" class="hidden">
             <div class="loading-spinner">
@@ -775,6 +810,9 @@
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/calendar.js"></script>
@@ -784,6 +822,21 @@
     <script src="js/conflict.js"></script>
     <script src="js/pins.js"></script>
     <script src="js/janus.js"></script>
+    <script src="js/owner/config.js"></script>
+    <script src="js/owner/db.js"></script>
+    <script src="js/owner/geometry.js"></script>
+    <script src="js/owner/model.js"></script>
+    <script src="js/owner/importer.js"></script>
+    <script src="js/owner/s2.js"></script>
+    <script src="js/owner/weather.js"></script>
+    <script src="js/owner/baselines.js"></script>
+    <script src="js/owner/anomaly.js"></script>
+    <script src="js/owner/render.js"></script>
+    <script src="js/owner/assessment.js"></script>
+    <script src="js/owner/narrative-templates.js"></script>
+    <script src="js/owner/narrative.js"></script>
+    <script src="js/owner/report.js"></script>
+    <script src="js/owner/ui.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/main.js"></script>
 </body>
