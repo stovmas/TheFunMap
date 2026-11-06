@@ -19,10 +19,16 @@ FunMap.Owner.Export = {
         return inMonth[0] || null;
     },
 
-    /** Stored PDF if present, else render (and store) one. */
+    /** Stored PDF if present AND valid, else render (and store) a fresh one.
+        Blank blobs stored before the PDF fix are regenerated, not shipped. */
     async _pdfFor(farm, firm, assessment) {
         const stored = await FunMap.Owner.DB.get('reports', 'pdf|' + assessment.id);
-        if (stored) return stored;
+        if (stored) {
+            try {
+                await FunMap.Owner.Report.assertPdfBlob(stored);
+                return stored;
+            } catch (e) { /* fall through and regenerate */ }
+        }
         return FunMap.Owner.Report.toPdfBlob(farm, firm, assessment);
     },
 

@@ -58,10 +58,13 @@ FunMap.Utils = {
         return `${(sqMeters / 1e6).toFixed(2)} km²`;
     },
 
-    // Format date for display
+    // Format date for display. Date-only strings ("YYYY-MM-DD") are parsed
+    // as LOCAL dates — new Date("YYYY-MM-DD") is UTC midnight and renders
+    // as the previous day in US time zones.
     formatDate(dateStr) {
         if (!dateStr) return '--';
-        const d = new Date(dateStr);
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr).trim());
+        const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(dateStr);
         return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     },
 

@@ -125,6 +125,30 @@ FunMap.Owner.Report = {
             FunMap.Owner.Appendix.buildHTML(farm, assessment, accent);
     },
 
+    /** Fails loudly when an exported blob is not a PDF with real content. */
+    async assertPdfBlob(blob) {
+        const min = FunMap.Owner.Config.pdfMinBytes;
+        if (!blob || blob.size < min) {
+            throw new Error(`Exported PDF looks blank (${blob ? blob.size : 0} bytes, expected >= ${min})`);
+        }
+        const head = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
+        if (String.fromCharCode.apply(null, head) !== '%PDF-') {
+            throw new Error('Export did not produce a PDF file');
+        }
+        return blob;
+    },
+
+    /** Resolve once every <img> in the holder has actually loaded. */
+    async _awaitImages(holder) {
+        await Promise.all(Array.from(holder.querySelectorAll('img')).map(img =>
+            new Promise(resolve => {
+                if (img.complete && img.naturalWidth > 0) return resolve();
+                img.onload = () => resolve();
+                img.onerror = () => resolve();   // missing image: render without it
+            })));
+        await new Promise(r => requestAnimationFrame(() => r()));
+    },
+
     /** Render the two-page report to a PDF blob, store it, and return it. */
     async toPdfBlob(farm, firm, assessment) {
         const urls = await this.imageUrls(firm, assessment);
@@ -133,6 +157,8 @@ FunMap.Owner.Report = {
         holder.innerHTML = this.buildFullHTML(farm, firm, assessment, urls);
         document.body.appendChild(holder);
         try {
+            // Snapshotting before images finish loading produces a blank page.
+            await this._awaitImages(holder);
             const blob = await html2pdf().from(holder).set({
                 margin: 0,
                 image: { type: 'jpeg', quality: 0.92 },
@@ -140,6 +166,7 @@ FunMap.Owner.Report = {
                 jsPDF: { unit: 'px', format: [816, 1056], hotfixes: ['px_scaling'] },
                 pagebreak: { mode: ['css', 'legacy'] },
             }).outputPdf('blob');
+            await this.assertPdfBlob(blob);
             await FunMap.Owner.DB.put('reports', blob, 'pdf|' + assessment.id);
             return blob;
         } finally {

@@ -256,6 +256,49 @@ ok(cloudyDay[0].validFraction < C.minValidFraction,
 ok(S2._parseStats({ data: [statsItem(1000, 100)] }, 0.5)[0].validFraction === 1,
     'validFraction clamped at 1 when estimate undershoots');
 
+// ---- Phase 1: headline must follow the signed numbers ----
+console.log('phase1 verdict sign:');
+// New Farm Oct 2026 shape: z = +2.67, field ABOVE baseline and neighbor,
+// but ~35% of acreage flagged -> tier capped to significant_concern.
+const newFarmV = { tier: 'significant_concern', capped: true, pctVsSelf: 131, pctVsNeighbor: 135,
+    flaggedShare: 0.35, flaggedAcres: 141.6, acknowledgesFlags: true, flagCount: 4 };
+const headline = N.verdictText({ month: '2026-10', verdict: newFarmV });
+ok(!/\bbelow\b|\bbehind\b/i.test(headline), `capped headline has no below/behind ("${headline.substring(0, 80)}...")`);
+ok(headline.includes('35%'), 'capped headline states the flagged share');
+ok(headline.includes('ahead'), 'signed self-comparison (ahead) survives in the headline');
+// Property: positive z (ratio > 1) can NEVER produce below/behind wording,
+// whatever the flagged share does to the tier.
+const posBase = { mean: 0.40, std: 0.05 };
+for (const share of [0, 0.03, 0.07, 0.12, 0.35]) {
+    const mt = B.verdictTier(0.507, posBase, C.verdict);          // z = +2.14, ahead
+    const d2 = Ve.derive({ meanTier: mt, flaggedShare: share, validScenes: 5, hasFlags: share > 0 }, C);
+    const txt = N.verdictText({ month: '2026-10', verdict: {
+        tier: d2.tier, capped: d2.capped, acknowledgesFlags: d2.acknowledgesFlags,
+        flagCount: share > 0 ? 4 : 0, flaggedShare: share, pctVsSelf: 127, pctVsNeighbor: 135 } });
+    ok(!/\bbelow\b|\bbehind\b/i.test(txt), `positive z + ${Math.round(share * 100)}% flagged -> no below/behind wording`);
+}
+
+// ---- Phase 1: date-only strings render as local dates ----
+console.log('phase1 dates (TZ=' + (process.env.TZ || 'system') + '):');
+(0, eval)(readFileSync(new URL('../js/utils.js', import.meta.url), 'utf8'));   // real Utils
+ok(FunMap.Utils.formatDate('2026-10-15') === 'Oct 15, 2026',
+    `date-only stays Oct 15 in any TZ (got "${FunMap.Utils.formatDate('2026-10-15')}")`);
+ok(FunMap.Utils.formatDate('2026-01-01') === 'Jan 1, 2026', 'year boundary date stays local');
+ok(/202\d/.test(FunMap.Utils.formatDate('2026-10-15T23:30:00.000Z')), 'full timestamps still accepted');
+
+// ---- Phase 1: blank-PDF guard ----
+console.log('phase1 pdf guard:');
+(0, eval)(readFileSync(new URL('../js/owner/report.js', import.meta.url), 'utf8'));
+const R = FunMap.Owner.Report;
+const bigPdf = new Blob([new TextEncoder().encode('%PDF-' + 'x'.repeat(25000))]);
+const tinyPdf = new Blob([new TextEncoder().encode('%PDF-blank')]);
+const bigNotPdf = new Blob([new Uint8Array(25000)]);
+ok(await R.assertPdfBlob(bigPdf) === bigPdf, 'real-sized PDF passes the guard');
+await assert.rejects(() => R.assertPdfBlob(tinyPdf), /blank/, '');
+ok(true, 'blank-sized export rejected');
+await assert.rejects(() => R.assertPdfBlob(bigNotPdf), /did not produce a PDF/, '');
+ok(true, 'non-PDF bytes rejected');
+
 // ---- Dashboard triage ----
 console.log('dashboard:');
 const D = O.Dashboard;

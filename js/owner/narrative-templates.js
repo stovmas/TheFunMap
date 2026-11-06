@@ -20,10 +20,19 @@ FunMap.Owner.NarrativeTemplates = {
         limited_visibility: 'Persistent cloud cover limited the satellite analysis this month, so no condition verdict is asserted; trends resume in the next report.',
     },
 
+    // Used when the tier was CAPPED by flagged-area share rather than driven
+    // by the field mean. These never assert the field is "below" anything —
+    // the signed comparison lives in {context} and can read "ahead".
+    verdictCapped: {
+        slightly_behind: 'Overall vegetation is tracking near or above its usual range{context}, though ~{share}% of the acreage is flagged for a closer look.',
+        behind: 'Roughly {share}% of this field’s acreage is flagged this month{context}; the areas are listed in the report.',
+        significant_concern: 'About {share}% of this field’s acreage is flagged for attention this month{context}; the flagged areas are detailed in the report.',
+    },
+
     // When flags exist under an otherwise-fine verdict, soften & acknowledge.
     verdictOverall: {
-        ahead: 'Overall the crop is tracking ahead of expectations{context}, though {flagNod} stands out and is detailed below.',
-        normal: 'Overall the crop is established and tracking normally{context}, though {flagNod} stands out and is detailed below.',
+        ahead: 'Overall the crop is tracking ahead of expectations{context}, though {flagNod} stands out and is detailed in the report.',
+        normal: 'Overall the crop is established and tracking normally{context}, though {flagNod} stands out and is detailed in the report.',
     },
     flagNod: { one: 'one area', few: 'a couple of areas', many: 'several areas' },
 

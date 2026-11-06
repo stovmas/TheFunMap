@@ -53,6 +53,16 @@ FunMap.Owner.Narrative = {
         const m = parseInt(assessment.month.split('-')[1], 10);
         const context = this._contextClause(v, T.windowName[m]);
 
+        // Tier capped by flagged share: the field mean may be fine or even
+        // ahead, so the headline must come from the signed numbers, never
+        // from "below/behind" boilerplate.
+        if (v.capped && T.verdictCapped[tier]) {
+            return this._fill(T.verdictCapped[tier], {
+                context,
+                share: Math.round((v.flaggedShare || 0) * 100),
+            });
+        }
+
         // Acknowledge flags under an otherwise-fine verdict.
         if (v.acknowledgesFlags && T.verdictOverall[tier]) {
             const fc = v.flagCount || 1;
