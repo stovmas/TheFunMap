@@ -57,10 +57,28 @@ FunMap.Owner.S2 = {
             throw new Error(`Statistical API ${resp.status}: ${t.substring(0, 160)}`);
         }
         const data = await resp.json();
-        return this._parseStats(data);
+        return this._parseStats(data, this._fillRatio(ring, C.rasterResDeg));
     },
 
-    _parseStats(data) {
+    /**
+     * In-polygon share of the polygon's bounding-box grid. The Statistical
+     * API's sampleCount covers the whole bbox and its noDataCount includes
+     * pixels OUTSIDE the polygon, so an irregular parcel would otherwise
+     * read as permanently "cloudy". Used as a fallback when the API does
+     * not return geometryPixelCount.
+     */
+    _fillRatio(ring, resDeg) {
+        const G = FunMap.Owner.Geometry;
+        const box = G.bbox(ring);
+        const w = Math.min(600, Math.max(4, Math.round((box[2] - box[0]) / resDeg)));
+        const h = Math.min(600, Math.max(4, Math.round((box[3] - box[1]) / resDeg)));
+        const mask = G.rasterMask(ring, box, w, h);
+        let inPoly = 0;
+        for (let i = 0; i < mask.length; i++) inPoly += mask[i];
+        return Math.min(1, Math.max(0.01, inPoly / (w * h)));
+    },
+
+    _parseStats(data, fillRatio) {
         const rows = [];
         (data.data || []).forEach(item => {
             try {
@@ -68,8 +86,13 @@ FunMap.Owner.S2 = {
                 const ndre = item.outputs.ndre && item.outputs.ndre.bands.B0.stats;
                 const total = ndvi.sampleCount || 0;
                 const noData = ndvi.noDataCount || 0;
-                const valid = total - noData;
+                const valid = total - noData;   // in-polygon, cloud-free, data-present
                 if (total === 0 || valid <= 0) return;
+                // Pixels inside the polygon: exact when the API provides it,
+                // else estimated from the polygon's bbox fill ratio.
+                const geomPx = (ndvi.geometryPixelCount && ndvi.geometryPixelCount > 0)
+                    ? ndvi.geometryPixelCount
+                    : Math.max(valid, Math.round(total * (fillRatio || 1)));
                 const pct = this._percentiles(ndvi);
                 rows.push({
                     date: item.interval.from.split('T')[0],
@@ -79,7 +102,7 @@ FunMap.Owner.S2 = {
                     ndviP90: pct[90],
                     ndviStd: ndvi.stDev,
                     ndreMean: ndre ? ndre.mean : null,
-                    validFraction: valid / total,
+                    validFraction: Math.min(1, valid / geomPx),
                 });
             } catch (e) { /* skip malformed interval */ }
         });

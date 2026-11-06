@@ -43,6 +43,23 @@ FunMap.Owner.Assessment = {
         return rows.sort((a, b) => a.date.localeCompare(b.date));
     },
 
+    /**
+     * Wipe timeseries rows built with outdated validFraction math or a
+     * boundary that has since been redrawn (farm.tsVersion mismatch), so
+     * the next backfill rebuilds them consistently.
+     */
+    async _ensureFreshTimeseries(farm) {
+        const C = FunMap.Owner.Config;
+        if (farm.tsVersion === C.TS_VERSION) return;
+        const DB = FunMap.Owner.DB;
+        const rows = await DB.getAllByIndex('timeseries', 'farmId', farm.id);
+        await DB.deleteMany('timeseries', rows.map(r => r.key));
+        farm.backfilledTo = null;
+        farm.landCover = null;      // proxy dates were picked from the old rows
+        farm.tsVersion = C.TS_VERSION;
+        await DB.put('farms', farm);
+    },
+
     /** Full assessment for a report month ("YYYY-MM"). */
     async run(farm, monthStr, onStatus) {
         const C = FunMap.Owner.Config;
@@ -50,8 +67,9 @@ FunMap.Owner.Assessment = {
         const G = FunMap.Owner.Geometry;
         const say = onStatus || (() => {});
 
-        // 1. Timeseries up to date
+        // 1. Timeseries up to date (rebuilt if stale math or redrawn boundary)
         say('Updating field history...');
+        await this._ensureFreshTimeseries(farm);
         await this.backfill(farm, onStatus);
         const allRows = await this.getTimeseries(farm.id);
         const valid = B.validRows(allRows, C.minValidFraction);

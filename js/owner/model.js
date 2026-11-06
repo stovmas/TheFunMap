@@ -56,6 +56,7 @@ FunMap.Owner.Model = {
             isDraft: !!opts.isDraft,       // boundary needs user verification
             weatherNormals: null,          // monthIdx(1-12) -> normal inches
             backfilledTo: null,            // last date covered by timeseries
+            tsVersion: FunMap.Owner.Config.TS_VERSION,
             lastAssessmentId: null,
             createdAt: new Date().toISOString(),
         };
@@ -65,12 +66,17 @@ FunMap.Owner.Model = {
     },
 
     async updateFarm(farm) {
-        // Recompute derived fields in case geometry changed
+        // Recompute derived fields in case geometry changed, and invalidate
+        // everything derived from the OLD boundary: the stored timeseries,
+        // backfill marker and land-cover mask are rebuilt on the next run.
         const G = FunMap.Owner.Geometry;
         const C = FunMap.Owner.Config;
         farm.bufferedRing = G.erodePolygon(farm.ring, C.edgeBufferMeters);
         farm.centroid = G.centroid(farm.ring);
         farm.acreage = Math.round(G.acres(farm.ring) * 10) / 10;
+        farm.tsVersion = 0;          // mismatch => wiped at next assessment run
+        farm.backfilledTo = null;
+        farm.landCover = null;
         await FunMap.Owner.DB.put('farms', farm);
         return farm;
     },

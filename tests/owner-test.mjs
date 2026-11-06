@@ -6,7 +6,7 @@ global.FunMap = { Utils: { uid: () => 't' + Math.random().toString(36).slice(2, 
 const load = f => (0, eval)(readFileSync(new URL('../js/owner/' + f, import.meta.url), 'utf8'));
 ['config.js', 'geometry.js', 'baselines.js', 'anomaly.js', 'flags.js', 'cause.js', 'verdict.js',
  'landcover.js', 'neighbor.js', 'narrative-templates.js', 'narrative.js', 'appendix.js',
- 'importer.js', 'dashboard.js'].forEach(load);
+ 'importer.js', 'dashboard.js', 's2.js'].forEach(load);
 
 const O = FunMap.Owner;
 const { Geometry: G, Baselines: B, Anomaly: A, Flags: F, Cause: Ca, Verdict: Ve, Narrative: N, Config: C } = O;
@@ -224,6 +224,37 @@ const currentRun = B.analysisDates(season, '2026-11-30', 8);
 ok(currentRun.length === 8 && currentRun[currentRun.length - 1] === '2026-10-26',
     'current-month run still uses the most recent passes');
 ok(B.analysisDates(season, '2026-04-30', 8).length === 0, 'month before any imagery -> no analysis dates');
+
+// ---- Statistical API validFraction: polygon vs bounding box ----
+console.log('valid fraction (bbox bug):');
+const S2 = O.S2;
+// Right triangle = half of its bounding box
+const triangle = [[-84.650, 35.200], [-84.640, 35.200], [-84.650, 35.210]];
+const fill = S2._fillRatio(triangle, C.rasterResDeg);
+ok(Math.abs(fill - 0.5) < 0.03, `triangle fills ~half its bbox (${fill.toFixed(3)})`);
+const statsItem = (sampleCount, noDataCount, extra) => ({
+    interval: { from: '2026-06-10T00:00:00Z' },
+    outputs: {
+        ndvi: { bands: { B0: { stats: Object.assign({
+            mean: 0.72, stDev: 0.05, sampleCount, noDataCount,
+            percentiles: { '10.0': 0.6, '50.0': 0.72, '90.0': 0.8 } }, extra || {}) } } },
+        ndre: { bands: { B0: { stats: { mean: 0.5 } } } },
+    },
+});
+// Clear day over the triangle: 1000 bbox px, 520 "noData" (500 outside + 20 cloudy)
+const clearDay = S2._parseStats({ data: [statsItem(1000, 520)] }, 0.5);
+ok(clearDay.length === 1 && clearDay[0].validFraction >= 0.9,
+    `clear day over a wedge passes (validFraction ${clearDay[0].validFraction.toFixed(2)}; old math said 0.48)`);
+ok(clearDay[0].validFraction >= C.minValidFraction, 'clear wedge scene clears the 70% gate');
+// Same scene with the API's exact geometryPixelCount wins over the estimate
+const exact = S2._parseStats({ data: [statsItem(1000, 520, { geometryPixelCount: 500 })] }, 0.9);
+ok(Math.abs(exact[0].validFraction - 0.96) < 1e-9, 'exact geometryPixelCount preferred over estimate');
+// Genuinely cloudy day still fails: only 100 of 500 in-polygon px valid
+const cloudyDay = S2._parseStats({ data: [statsItem(1000, 900)] }, 0.5);
+ok(cloudyDay[0].validFraction < C.minValidFraction,
+    `genuinely cloudy scene still excluded (${cloudyDay[0].validFraction.toFixed(2)})`);
+ok(S2._parseStats({ data: [statsItem(1000, 100)] }, 0.5)[0].validFraction === 1,
+    'validFraction clamped at 1 when estimate undershoots');
 
 // ---- Dashboard triage ----
 console.log('dashboard:');

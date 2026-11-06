@@ -92,7 +92,9 @@ FunMap.Owner.Config = {
     },
 
     // ---- Pipeline identity (appendix) ----
-    version: 'owner-report/0.2.0',
+    version: 'owner-report/0.2.1',
+    // Bump to invalidate stored per-farm timeseries (validFraction math change)
+    TS_VERSION: 2,
 
     // ---- Weather ----
     weatherNormalYears: [1991, 2020],   // inclusive range for "normal"
