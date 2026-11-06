@@ -304,22 +304,35 @@ FunMap.Settings = {
     async _refreshCDSEToken() {
         const clientId = this.getApiKey('cdse_client_id');
         const clientSecret = this.getApiKey('cdse_client_secret');
-        if (!clientId || !clientSecret) {
+        // Proxy mode: set Client ID to "proxy" when a trusted HTTPS proxy
+        // (e.g. a Claude cloud session's credential store) injects the real
+        // OAuth client as HTTP Basic auth on requests to the token endpoint.
+        // Keycloak accepts client_secret_basic, so no secret is stored in
+        // the browser, the repo, or this placeholder header.
+        const proxyMode = String(clientId).trim().toLowerCase() === 'proxy';
+        if (!proxyMode && (!clientId || !clientSecret)) {
             throw new Error('CDSE credentials not configured. Go to Settings > API Keys.');
+        }
+
+        const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+        const params = { grant_type: 'client_credentials' };
+        if (proxyMode) {
+            headers['Authorization'] = 'Basic cHJveHk6cHJveHk='; // replaced by the proxy
+        } else {
+            params.client_id = clientId;
+            params.client_secret = clientSecret;
         }
 
         const response = await fetch(FunMap.Config.CDSE.tokenEndpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                grant_type: 'client_credentials',
-                client_id: clientId,
-                client_secret: clientSecret,
-            }),
+            headers: headers,
+            body: new URLSearchParams(params),
         });
 
         if (!response.ok) {
-            throw new Error('Failed to authenticate with CDSE. Check your credentials.');
+            throw new Error(proxyMode
+                ? 'CDSE proxy authentication failed - is the credential saved for identity.dataspace.copernicus.eu?'
+                : 'Failed to authenticate with CDSE. Check your credentials.');
         }
 
         const data = await response.json();
