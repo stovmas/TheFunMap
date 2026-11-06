@@ -17,6 +17,22 @@ FunMap.Owner.Dashboard = {
         document.getElementById('owner-dash-export').addEventListener('click', () => this._export());
         document.getElementById('owner-dash-schedule').addEventListener('change', () => this._saveSchedule());
         document.getElementById('owner-dash-schedule-day').addEventListener('change', () => this._saveSchedule());
+
+        // Report-month picker: defaults to the current month; backdated
+        // months re-run against historical imagery (data goes back to 2019).
+        const monthInput = document.getElementById('owner-dash-month');
+        const nowMonth = new Date().toISOString().substring(0, 7);
+        monthInput.value = nowMonth;
+        monthInput.max = nowMonth;
+        monthInput.min = FunMap.Owner.Config.backfillStart.substring(0, 7);
+    },
+
+    /** The report month selected in the dashboard (clamped, never future). */
+    _month() {
+        const nowMonth = new Date().toISOString().substring(0, 7);
+        const v = document.getElementById('owner-dash-month').value;
+        if (!v || !/^\d{4}-\d{2}$/.test(v) || v > nowMonth) return nowMonth;
+        return v;
     },
 
     /** Triage score: flags dominate, then verdict tier (pure, tested) */
@@ -141,7 +157,7 @@ FunMap.Owner.Dashboard = {
     async _runFarm(farmId) {
         const farm = await FunMap.Owner.Model.getFarm(farmId);
         if (!farm) return;
-        const month = new Date().toISOString().substring(0, 7);
+        const month = this._month();
         FunMap.Utils.showLoading('RUNNING ' + farm.name.toUpperCase());
         try {
             await FunMap.Owner.Assessment.run(farm, month, s => FunMap.Utils.showLoading(s.toUpperCase()));
@@ -151,7 +167,7 @@ FunMap.Owner.Dashboard = {
     },
 
     async _runPortfolio() {
-        const month = new Date().toISOString().substring(0, 7);
+        const month = this._month();
         FunMap.Utils.showLoading('RUNNING PORTFOLIO...');
         const result = await FunMap.Owner.Scheduler.runPortfolio(this._portfolioId, month,
             s => FunMap.Utils.showLoading(('RUNNING ' + s).toUpperCase()));
@@ -162,7 +178,7 @@ FunMap.Owner.Dashboard = {
     },
 
     async _export() {
-        const month = new Date().toISOString().substring(0, 7);
+        const month = this._month();
         FunMap.Utils.showLoading('EXPORTING PDFS...');
         try {
             const r = await FunMap.Owner.Export.portfolioZip(this._portfolioId, month,

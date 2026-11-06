@@ -211,6 +211,20 @@ const html2 = Ap.buildHTML(apFarm, apBase, '#2e6e3e');
 ok(html2.includes('Methodology') && html2.includes('Contains modified Copernicus Sentinel data 2026'),
     'appendix HTML renders with attribution');
 
+// ---- Month-aware analysis window (backdated reports) ----
+console.log('report month:');
+const mkRow = (date) => ({ date, ndviMean: 0.7, validFraction: 0.95 });
+const season = ['2026-05-04', '2026-05-19', '2026-06-03', '2026-06-13', '2026-06-28',
+    '2026-07-08', '2026-08-02', '2026-09-11', '2026-10-06', '2026-10-26'].map(mkRow);
+const backdated = B.analysisDates(season, '2026-06-30', 8);
+ok(backdated.every(d => d <= '2026-06-30'), 'backdated month never uses imagery after month end');
+ok(backdated[backdated.length - 1] === '2026-06-28', `latest analyzed pass is the last of the window (${backdated[backdated.length - 1]})`);
+ok(backdated.length === 5, `window keeps all available passes up to the cap (${backdated.length})`);
+const currentRun = B.analysisDates(season, '2026-11-30', 8);
+ok(currentRun.length === 8 && currentRun[currentRun.length - 1] === '2026-10-26',
+    'current-month run still uses the most recent passes');
+ok(B.analysisDates(season, '2026-04-30', 8).length === 0, 'month before any imagery -> no analysis dates');
+
 // ---- Dashboard triage ----
 console.log('dashboard:');
 const D = O.Dashboard;

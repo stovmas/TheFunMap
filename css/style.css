@@ -1979,6 +1979,17 @@ textarea.xbox-input {
     align-items: center;
     gap: 8px;
 }
+.owner-dash-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--xbox-text-dim);
+    white-space: nowrap;
+}
+#owner-dash-month {
+    color-scheme: dark;
+    width: 150px;
+}
 .owner-dash-scroll {
     flex: 1;
     overflow-y: auto;

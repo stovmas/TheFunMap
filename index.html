@@ -788,6 +788,8 @@
                     <span class="janus-viewer-title">TRIAGE &mdash; <span id="owner-dash-title"></span></span>
                 </div>
                 <div class="owner-dash-controls">
+                    <label for="owner-dash-month" class="owner-dash-label" title="Report month — pick a past month to run or export backdated reports">MONTH</label>
+                    <input type="month" id="owner-dash-month" class="xbox-input sm">
                     <label class="xbox-check sm" title="Auto-run monthly while the app is open">
                         <input type="checkbox" id="owner-dash-schedule">
                         <span class="check-mark"></span>
@@ -795,7 +797,7 @@
                     </label>
                     <input type="number" id="owner-dash-schedule-day" class="xbox-input sm" min="1" max="28" value="1" style="width:48px;">
                     <button id="owner-dash-run" class="xbox-btn sm">RUN ALL NOW</button>
-                    <button id="owner-dash-export" class="xbox-btn sm" title="Zip this month's PDFs">EXPORT ZIP</button>
+                    <button id="owner-dash-export" class="xbox-btn sm" title="Zip the selected month's PDFs">EXPORT ZIP</button>
                     <button id="owner-dash-close" class="xbox-btn sm accent">CLOSE</button>
                 </div>
             </div>

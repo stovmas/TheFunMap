@@ -84,9 +84,10 @@ FunMap.Owner.Assessment = {
         const current = B.currentValue(valid, windowFrom, windowTo, 3);
         const selfBase = B.selfBaseline(valid, windowCenter, 20, y);
 
-        // 4. Sub-field anomalies over the most recent valid dates
+        // 4. Sub-field anomalies over the most recent valid dates of the
+        // report window (month-aware: never imagery after windowTo)
         say('Scanning for sub-field anomalies...');
-        const anomalyDates = valid.slice(-C.anomaly.analysisDates).map(r => r.date);
+        const anomalyDates = B.analysisDates(valid, windowTo, C.anomaly.analysisDates);
         const rasters = [];
         for (const date of anomalyDates) {
             try {
@@ -195,7 +196,8 @@ FunMap.Owner.Assessment = {
             flagSummary: decided.tier === 'limited_visibility' ? null : flagResult.summary,
             weather: weather,
             images: images,
-            sparkline: valid.slice(-24).map(r => ({ date: r.date, v: round3(r.ndviMean) })),
+            sparkline: valid.filter(r => r.date <= windowTo).slice(-24)
+                .map(r => ({ date: r.date, v: round3(r.ndviMean) })),
         };
 
         await FunMap.Owner.DB.put('assessments', assessment);

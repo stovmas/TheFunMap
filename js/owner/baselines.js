@@ -97,6 +97,15 @@ FunMap.Owner.Baselines = {
         };
     },
 
+    /**
+     * Dates for sub-field analysis: the last `take` valid passes ON OR
+     * BEFORE windowEnd, so a backdated report never mixes in imagery
+     * from after its report month.
+     */
+    analysisDates(validRows, windowEnd, take) {
+        return validRows.filter(r => r.date <= windowEnd).slice(-take).map(r => r.date);
+    },
+
     /** Audit table of every scene in the window: used / excluded + reason */
     sceneTable(allRows, fromDate, toDate, minValidFraction) {
         return allRows
