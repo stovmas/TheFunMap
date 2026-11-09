@@ -66,6 +66,7 @@ FunMap.Owner.UI = {
                         <button class="xbox-btn xs o-comp" data-id="${f.id}" title="Draw a comparison polygon on a nearby field">+COMP</button>
                         <button class="xbox-btn xs ghost o-redraw" data-id="${f.id}" title="Redraw boundary">REDRAW</button>
                         ${landBtns}
+                        <button class="xbox-btn xs ghost o-export" data-id="${f.id}" title="Copy/download boundary GeoJSON">GEOJSON</button>
                         <button class="xbox-btn xs o-fly" data-id="${f.id}">FLY</button>
                         <button class="xbox-btn xs ghost accent o-del" data-id="${f.id}">DEL</button>
                     </div>
@@ -81,6 +82,7 @@ FunMap.Owner.UI = {
         wire('.o-redraw', id => this._startDraw('redraw', id));
         wire('.o-mask', id => this._showLandMask(id));
         wire('.o-landok', id => this._confirmLand(id));
+        wire('.o-export', id => this._exportFarm(id));
         wire('.o-fly', id => this._fly(id));
         wire('.o-del', id => this._delete(id));
 
@@ -205,6 +207,26 @@ FunMap.Owner.UI = {
         await this.refreshList();
         this._fly(farm.id);
         FunMap.Utils.toast('Moby Road Farm loaded (DRAFT boundary — use REDRAW to correct it).', 'warning', 7000);
+    },
+
+    /** Export a farm boundary as GeoJSON: clipboard + file download. */
+    async _exportFarm(id) {
+        const farm = await FunMap.Owner.Model.getFarm(id);
+        if (!farm) return;
+        const gj = JSON.stringify({
+            type: 'Feature',
+            properties: { name: farm.name, crop: farm.cropType || '' },
+            geometry: { type: 'Polygon', coordinates: [FunMap.Owner.Geometry.closeRing(farm.ring)] },
+        }, null, 2);
+        try {
+            await navigator.clipboard.writeText(gj);
+            FunMap.Utils.toast('Boundary GeoJSON copied to clipboard (and downloading).', 'success');
+        } catch (e) {
+            FunMap.Utils.toast('Boundary GeoJSON downloading (clipboard blocked).', 'info');
+        }
+        FunMap.Owner.Report.downloadBlob(
+            new Blob([gj], { type: 'application/geo+json' }),
+            `${farm.name.replace(/\W+/g, '_')}.geojson`);
     },
 
     async _fly(id) {
